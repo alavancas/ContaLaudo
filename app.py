@@ -715,17 +715,28 @@ def magic_link():
             return redirect(url_for('magic_link'))
 
         try:
-            # Enviar magic link com configurações corretas
-            res = supabase.auth.sign_in_with_otp({
-                "email": email,
-                "options": {
-                    "email_redirect_to": CALLBACK_URL
+            print(f"Enviando magic link para {email}", file=sys.stderr)
+            print(f"URL de callback: {CALLBACK_URL}", file=sys.stderr)
+            print(f"Supabase URL: {os.getenv('SUPABASE_URL')}", file=sys.stderr)
+            
+            # Enviar magic link com método correto
+            res = supabase.auth.sign_in_with_otp(
+                email=email,
+                options={
+                    "email_redirect_to": CALLBACK_URL,
+                    "data": {"email": email}
                 }
-            })
+            )
+            
+            print(f"Resposta do Supabase: {res}", file=sys.stderr)
             flash('Link de acesso enviado para seu email!', 'success')
             return redirect(url_for('magic_link'))
+            
         except Exception as e:
-            print(f"Erro ao enviar magic link: {str(e)}", file=sys.stderr)
+            print(f"Erro detalhado ao enviar magic link: {str(e)}", file=sys.stderr)
+            print(f"Tipo do erro: {type(e)}", file=sys.stderr)
+            if hasattr(e, '__dict__'):
+                print(f"Atributos do erro: {e.__dict__}", file=sys.stderr)
             flash('Erro ao enviar o link de acesso.', 'error')
             return redirect(url_for('magic_link'))
 
