@@ -53,21 +53,9 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 # Configuração do Supabase
-supabase_client_options = {
-    "auth": {
-        "autoRefreshToken": True,
-        "persistSession": True,
-        "detectSessionInUrl": True,
-        "flowType": "pkce",
-        "redirectTo": SITE_URL
-    }
-}
-
-# Inicialização do Supabase
 supabase = create_client(
     os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY'),
-    options=supabase_client_options
+    os.getenv('SUPABASE_KEY')
 )
 
 # Configuração do Supabase
@@ -786,14 +774,15 @@ def magic_link():
             return redirect(url_for('magic_link'))
 
         try:
-            # Enviar magic link com configurações corretas
+            # Enviar magic link com configurações corretas e site URL
+            site_url = 'https://contalaudo.onrender.com' if os.getenv('RENDER') else 'http://localhost:8080'
             res = supabase.auth.sign_in_with_otp({
                 "email": email,
                 "options": {
-                    "email_redirect_to": f"{SITE_URL}/verify-magic-link",
-                    "redirect_to": f"{SITE_URL}/verify-magic-link",
+                    "email_redirect_to": f"{site_url}/verify-magic-link",
+                    "redirect_to": f"{site_url}/verify-magic-link",
                     "data": {
-                        "redirect_to": f"{SITE_URL}/verify-magic-link"
+                        "redirect_to": f"{site_url}/verify-magic-link"
                     }
                 }
             })
