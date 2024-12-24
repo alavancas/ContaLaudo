@@ -40,16 +40,7 @@ if SITE_URL.endswith('/'):
 # Configuração do Supabase
 supabase = create_client(
     os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY'),
-    options={
-        'auth': {
-            'autoRefreshToken': True,
-            'persistSession': True,
-            'detectSessionInUrl': False,
-            'flowType': 'pkce',
-            'site_url': SITE_URL
-        }
-    }
+    os.getenv('SUPABASE_KEY')
 )
 
 # Configuração do callback URL
@@ -728,12 +719,7 @@ def magic_link():
             res = supabase.auth.sign_in_with_otp({
                 "email": email,
                 "options": {
-                    "email_redirect_to": f"{SITE_URL}/auth/callback",
-                    "redirect_to": f"{SITE_URL}/auth/callback",
-                    "data": {
-                        "email": email,
-                        "site_url": SITE_URL
-                    }
+                    "email_redirect_to": CALLBACK_URL
                 }
             })
             flash('Link de acesso enviado para seu email!', 'success')
