@@ -330,33 +330,58 @@ window.addEventListener('load', function() {
 
 {% block content %}
 <div class="dashboard">
-    <div class="filter-container">
-        <select id="instituicao" onchange="atualizarDashboard()">
-            <option value="todas">Todas as Instituições</option>
-            {% for instituicao in instituicoes %}
-            <option value="{{ instituicao.id }}">{{ instituicao.nome }}</option>
-            {% endfor %}
-        </select>
-        <div class="month-year-container">
-            <select id="mes" onchange="atualizarDashboard()">
-                <option value="1" {% if mes_atual == 1 %}selected{% endif %}>Janeiro</option>
-                <option value="2" {% if mes_atual == 2 %}selected{% endif %}>Fevereiro</option>
-                <option value="3" {% if mes_atual == 3 %}selected{% endif %}>Março</option>
-                <option value="4" {% if mes_atual == 4 %}selected{% endif %}>Abril</option>
-                <option value="5" {% if mes_atual == 5 %}selected{% endif %}>Maio</option>
-                <option value="6" {% if mes_atual == 6 %}selected{% endif %}>Junho</option>
-                <option value="7" {% if mes_atual == 7 %}selected{% endif %}>Julho</option>
-                <option value="8" {% if mes_atual == 8 %}selected{% endif %}>Agosto</option>
-                <option value="9" {% if mes_atual == 9 %}selected{% endif %}>Setembro</option>
-                <option value="10" {% if mes_atual == 10 %}selected{% endif %}>Outubro</option>
-                <option value="11" {% if mes_atual == 11 %}selected{% endif %}>Novembro</option>
-                <option value="12" {% if mes_atual == 12 %}selected{% endif %}>Dezembro</option>
-            </select>
-            <select id="ano" onchange="atualizarDashboard()">
-                {% for ano in range(2023, ano_atual + 1) %}
-                <option value="{{ ano }}" {% if ano == ano_atual %}selected{% endif %}>{{ ano }}</option>
-                {% endfor %}
-            </select>
+    <div class="filtros">
+        <div class="filter-section">
+            <div class="dropdown">
+                <div class="dropdown-toggle" onclick="toggleDropdown()">
+                    <span id="selected-count">Todas as Instituições</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="dropdown-menu" id="instituicoes-dropdown">
+                    <div class="dropdown-menu-header">
+                        <button type="button" onclick="selecionarTodas(event)" class="btn">
+                            <i class="fas fa-check-double"></i> Todas
+                        </button>
+                        <button type="button" onclick="limparSelecao(event)" class="btn">
+                            <i class="fas fa-times"></i> Limpar
+                        </button>
+                    </div>
+                    <div class="dropdown-menu-content">
+                        {% for instituicao in instituicoes %}
+                        <label class="dropdown-item">
+                            <input type="checkbox" 
+                                   class="instituicao-checkbox" 
+                                   name="instituicoes[]"
+                                   value="{{ instituicao.id }}" 
+                                   onchange="atualizarTextoSelecao(); atualizarDashboard()">
+                            <span class="instituicao-nome">{{ instituicao.nome }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="date-filters">
+                <select id="mes" onchange="atualizarDashboard()">
+                    <option value="1" {% if mes_atual == 1 %}selected{% endif %}>Janeiro</option>
+                    <option value="2" {% if mes_atual == 2 %}selected{% endif %}>Fevereiro</option>
+                    <option value="3" {% if mes_atual == 3 %}selected{% endif %}>Março</option>
+                    <option value="4" {% if mes_atual == 4 %}selected{% endif %}>Abril</option>
+                    <option value="5" {% if mes_atual == 5 %}selected{% endif %}>Maio</option>
+                    <option value="6" {% if mes_atual == 6 %}selected{% endif %}>Junho</option>
+                    <option value="7" {% if mes_atual == 7 %}selected{% endif %}>Julho</option>
+                    <option value="8" {% if mes_atual == 8 %}selected{% endif %}>Agosto</option>
+                    <option value="9" {% if mes_atual == 9 %}selected{% endif %}>Setembro</option>
+                    <option value="10" {% if mes_atual == 10 %}selected{% endif %}>Outubro</option>
+                    <option value="11" {% if mes_atual == 11 %}selected{% endif %}>Novembro</option>
+                    <option value="12" {% if mes_atual == 12 %}selected{% endif %}>Dezembro</option>
+                </select>
+                <select id="ano" onchange="atualizarDashboard()">
+                    {% for ano in range(2023, ano_atual + 1) %}
+                    <option value="{{ ano }}" {% if ano == ano_atual %}selected{% endif %}>{{ ano }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
     </div>
 
@@ -514,69 +539,73 @@ window.addEventListener('load', function() {
     margin: 0 auto;
 }
 
-.filter-container {
+.filtros {
     display: flex;
-    gap: 10px;
+    gap: 16px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
-    padding: 20px;
-    background: #2a2a2a;
-    border-radius: 10px;
-    margin-bottom: 20px;
+    background: var(--surface-color);
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
 }
 
-.filter-container select {
-    flex: 1;
-    min-width: 200px;
-    padding: 12px;
-    border: none;
-    border-radius: 5px;
-    background-color: #1a1a1a;
-    color: white;
-    cursor: pointer;
-    font-size: 16px;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    background-size: 20px;
-    padding-right: 40px;
-}
-
-.month-year-container {
+.filter-section {
     display: flex;
-    gap: 10px;
-    width: 100%;
-}
-
-.month-year-container select {
+    gap: 16px;
     flex: 1;
-    width: 50%;
+    min-width: 0;
 }
 
-@media (max-width: 768px) {
-    .filter-container {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .filter-container select {
-        width: 100%;
-        min-width: unset;
-        flex: none;
-    }
+.dropdown {
+    position: relative;
+    display: inline-block;
+    min-width: 200px;
+    flex: 1;
+}
 
-    .month-year-container {
-        display: flex;
-        gap: 10px;
-        width: 100%;
-    }
+.dropdown-toggle {
+    background: var(--background-color);
+    color: var(--text-primary);
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s;
+}
 
-    .month-year-container select {
-        flex: 1;
-        width: 50%;
-    }
+.dropdown-toggle:hover {
+    border-color: var(--primary-color);
+}
+
+.dropdown-toggle::after {
+    display: none;
+}
+
+.date-filters {
+    display: flex;
+    gap: 16px;
+    flex: 1;
+}
+
+.date-filters select {
+    flex: 1;
+    background: var(--background-color);
+    color: var(--text-primary);
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.date-filters select:hover {
+    border-color: var(--primary-color);
 }
 
 .empty-state {
@@ -688,8 +717,16 @@ window.addEventListener('load', function() {
         padding: 12px;
     }
 
-    .filter-container {
-        flex-direction: column;
+    .filter-section {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .dropdown, .date-filters {
+        flex: 0 0 100%;
+    }
+
+    .date-filters {
         gap: 8px;
     }
 
