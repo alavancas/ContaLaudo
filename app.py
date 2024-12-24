@@ -4,6 +4,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_migrate import Migrate
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from supabase import create_client
 from dotenv import load_dotenv
 import os
 import sys
@@ -31,8 +32,15 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+# Configuração do Supabase
+supabase = create_client(
+    os.getenv('SUPABASE_URL'),
+    os.getenv('SUPABASE_KEY')
+)
+
 # Configuração do site URL
 SITE_URL = os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:8080')
+CALLBACK_URL = f"{SITE_URL}/verify-magic-link"
 
 @app.before_request
 def before_request():
@@ -743,26 +751,26 @@ def magic_link():
     if request.method == 'POST':
         email = request.form.get('email')
         if not email:
-            flash('Por favor, informe seu email.', 'error')
+            flash('Por favor, forneça um email.', 'error')
             return redirect(url_for('magic_link'))
 
         try:
             # Enviar magic link com configurações corretas
-            # res = supabase.auth.sign_in_with_otp({
-            #     "email": email,
-            #     "options": {
-            #         "email_redirect_to": "http://localhost:8080/verify-magic-link",
-            #         "redirect_to": "http://localhost:8080/verify-magic-link"
-            #     }
-            # })
+            res = supabase.auth.sign_in_with_otp({
+                "email": email,
+                "options": {
+                    "email_redirect_to": CALLBACK_URL,
+                    "redirect_to": CALLBACK_URL
+                }
+            })
             flash('Link de acesso enviado para seu email!', 'success')
             return redirect(url_for('magic_link'))
         except Exception as e:
-            print(f"Erro ao enviar magic link: {str(e)}")
-            flash('Erro ao enviar link. Por favor, tente novamente.', 'error')
+            print(f"Erro ao enviar magic link: {str(e)}", file=sys.stderr)
+            flash('Erro ao enviar o link de acesso.', 'error')
             return redirect(url_for('magic_link'))
 
-    return render_template('login.html')
+    return render_template('magic_link.html')
 
 @app.route('/process-magic-link', methods=['POST'])
 def process_magic_link():
