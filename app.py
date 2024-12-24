@@ -27,15 +27,23 @@ if not db_url:
 if db_url.startswith('DATABASE_URL='):
     db_url = db_url.replace('DATABASE_URL=', '')
 
+# Adiciona parâmetros SSL e timeout
+if '?' in db_url:
+    db_url += '&sslmode=require&connect_timeout=30'
+else:
+    db_url += '?sslmode=require&connect_timeout=30'
+
 # Configuração específica para o pooling do Supabase
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,
-    'pool_size': 10,
+    'pool_size': 5,
     'max_overflow': 2,
+    'pool_timeout': 30,
+    'pool_recycle': 1800,
     'connect_args': {
-        'connect_timeout': 10,
+        'connect_timeout': 30,
         'application_name': 'contalaudo'
     }
 }
