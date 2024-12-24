@@ -4,7 +4,6 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_migrate import Migrate
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from supabase import create_client, Client
 from dotenv import load_dotenv
 import os
 import sys
@@ -17,7 +16,12 @@ load_dotenv()
 # Configuração do Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')  # Mudado de SUPABASE_DB_URL para DATABASE_URL
+
+# Configuração do banco de dados
+database_url = os.getenv('DATABASE_URL')
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicialização dos objetos
@@ -27,15 +31,8 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-# Configuração do Supabase
-supabase: Client = create_client(
-    os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY')
-)
-
-# Configuração do site URL para o Supabase
+# Configuração do site URL
 SITE_URL = os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:8080')
-CALLBACK_URL = f"{SITE_URL}/auth/callback"
 
 @app.before_request
 def before_request():
@@ -408,16 +405,16 @@ def login():
         email = request.form['email']
         try:
             # Envia o magic link
-            result = supabase.auth.sign_in_with_otp({
-                "email": email,
-                "options": {
-                    "email_redirect_to": "http://localhost:8080/verify-magic-link",
-                    "redirect_to": "http://localhost:8080/verify-magic-link",
-                    "data": {
-                        "redirect_url": "http://localhost:8080/verify-magic-link"
-                    }
-                }
-            })
+            # result = supabase.auth.sign_in_with_otp({
+            #     "email": email,
+            #     "options": {
+            #         "email_redirect_to": "http://localhost:8080/verify-magic-link",
+            #         "redirect_to": "http://localhost:8080/verify-magic-link",
+            #         "data": {
+            #             "redirect_url": "http://localhost:8080/verify-magic-link"
+            #         }
+            #     }
+            # })
             flash('Link de acesso enviado para seu email!', 'success')
             return redirect(url_for('login'))
         except Exception as e:
@@ -708,30 +705,30 @@ def verify_magic_link():
                 return jsonify({'success': False, 'message': 'Token não encontrado'}), 400
 
             # Verificar o token com o Supabase
-            user_data = supabase.auth.get_user(access_token)
+            # user_data = supabase.auth.get_user(access_token)
             
-            if user_data and hasattr(user_data, 'user') and user_data.user:
-                email = user_data.user.email
+            # if user_data and hasattr(user_data, 'user') and user_data.user:
+            #     email = user_data.user.email
                 
-                # Verificar se o usuário já existe
-                user = User.query.filter_by(email=email).first()
+            #     # Verificar se o usuário já existe
+            #     user = User.query.filter_by(email=email).first()
                 
-                if not user:
-                    # Criar novo usuário
-                    user = User(
-                        email=email,
-                        nome=email.split('@')[0]  # Usa parte do email como nome inicial
-                    )
-                    db.session.add(user)
-                    db.session.commit()
+            #     if not user:
+            #         # Criar novo usuário
+            #         user = User(
+            #             email=email,
+            #             nome=email.split('@')[0]  # Usa parte do email como nome inicial
+            #         )
+            #         db.session.add(user)
+            #         db.session.commit()
                     
-                    # Importar procedimentos base para o novo usuário
-                    importar_procedimentos_base(user.id)
-                    print(f"Procedimentos importados para o novo usuário {user.email}", file=sys.stderr)
+            #         # Importar procedimentos base para o novo usuário
+            #         importar_procedimentos_base(user.id)
+            #         print(f"Procedimentos importados para o novo usuário {user.email}", file=sys.stderr)
                 
-                # Fazer login
-                login_user(user)
-                return jsonify({'success': True, 'redirect': url_for('index')})
+            #     # Fazer login
+            #     login_user(user)
+            #     return jsonify({'success': True, 'redirect': url_for('index')})
             
             return jsonify({'success': False, 'message': 'Token inválido'}), 401
             
@@ -751,13 +748,13 @@ def magic_link():
 
         try:
             # Enviar magic link com configurações corretas
-            res = supabase.auth.sign_in_with_otp({
-                "email": email,
-                "options": {
-                    "email_redirect_to": "http://localhost:8080/verify-magic-link",
-                    "redirect_to": "http://localhost:8080/verify-magic-link"
-                }
-            })
+            # res = supabase.auth.sign_in_with_otp({
+            #     "email": email,
+            #     "options": {
+            #         "email_redirect_to": "http://localhost:8080/verify-magic-link",
+            #         "redirect_to": "http://localhost:8080/verify-magic-link"
+            #     }
+            # })
             flash('Link de acesso enviado para seu email!', 'success')
             return redirect(url_for('magic_link'))
         except Exception as e:
@@ -798,7 +795,7 @@ def process_magic_link():
         try:
             # Configura a sessão do Supabase com o token
             print("Tentando configurar sessão do Supabase...", file=sys.stderr)
-            session = supabase.auth.set_session(access_token, refresh_token)
+            # session = supabase.auth.set_session(access_token, refresh_token)
             print("Sessão do Supabase configurada com sucesso", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao configurar sessão do Supabase: {str(e)}", file=sys.stderr)
@@ -807,39 +804,39 @@ def process_magic_link():
         try:
             # Obtém os dados do usuário
             print("Tentando obter dados do usuário...", file=sys.stderr)
-            user_response = supabase.auth.get_user()
-            user_data = user_response.user
-            print(f"Dados do usuário obtidos: {user_data.email if user_data else 'Nenhum'}", file=sys.stderr)
+            # user_response = supabase.auth.get_user()
+            # user_data = user_response.user
+            print(f"Dados do usuário obtidos: ", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao obter dados do usuário: {str(e)}", file=sys.stderr)
             raise
 
-        if not user_data:
-            print("Erro: Dados do usuário não encontrados", file=sys.stderr)
-            flash('Usuário não encontrado.', 'error')
-            return redirect(url_for('login'))
+        # if not user_data:
+        #     print("Erro: Dados do usuário não encontrados", file=sys.stderr)
+        #     flash('Usuário não encontrado.', 'error')
+        #     return redirect(url_for('login'))
 
         try:
             # Verifica se o usuário já existe no banco local
-            print(f"Verificando usuário local para email: {user_data.email}", file=sys.stderr)
-            local_user = User.query.filter_by(email=user_data.email).first()
+            print(f"Verificando usuário local para email: ", file=sys.stderr)
+            # local_user = User.query.filter_by(email=user_data.email).first()
             
-            if not local_user:
-                print("Criando novo usuário local...", file=sys.stderr)
-                # Cria um novo usuário local
-                local_user = User(
-                    email=user_data.email,
-                    nome=user_data.email.split('@')[0]  # Usa parte do email como nome temporário
-                )
-                db.session.add(local_user)
-                db.session.commit()
-                print(f"Novo usuário local criado: {local_user.email}", file=sys.stderr)
+            # if not local_user:
+            #     print("Criando novo usuário local...", file=sys.stderr)
+            #     # Cria um novo usuário local
+            #     local_user = User(
+            #         email=user_data.email,
+            #         nome=user_data.email.split('@')[0]  # Usa parte do email como nome temporário
+            #     )
+            #     db.session.add(local_user)
+            #     db.session.commit()
+            #     print(f"Novo usuário local criado: {local_user.email}", file=sys.stderr)
                 
-                # Importar procedimentos base para o novo usuário
-                importar_procedimentos_base(local_user.id)
-                print(f"Procedimentos importados para o novo usuário {local_user.email}", file=sys.stderr)
-            else:
-                print(f"Usuário local encontrado: {local_user.username}", file=sys.stderr)
+            #     # Importar procedimentos base para o novo usuário
+            #     importar_procedimentos_base(local_user.id)
+            #     print(f"Procedimentos importados para o novo usuário {local_user.email}", file=sys.stderr)
+            # else:
+            #     print(f"Usuário local encontrado: {local_user.username}", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao gerenciar usuário local: {str(e)}", file=sys.stderr)
             raise
@@ -847,7 +844,7 @@ def process_magic_link():
         try:
             # Faz login do usuário
             print("Fazendo login do usuário...", file=sys.stderr)
-            login_user(local_user)
+            # login_user(local_user)
             print("Login realizado com sucesso", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao fazer login: {str(e)}", file=sys.stderr)
