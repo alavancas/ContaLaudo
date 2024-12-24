@@ -40,6 +40,11 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     }
 }
 
+# Configuração do site URL para o Supabase
+SITE_URL = os.getenv('SITE_URL', 'http://localhost:8080')
+if os.getenv('RENDER'):
+    SITE_URL = 'https://contalaudo.onrender.com'
+
 # Inicialização dos objetos
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
@@ -53,8 +58,7 @@ supabase = create_client(
     os.getenv('SUPABASE_KEY')
 )
 
-# Configuração do site URL para o Supabase
-SITE_URL = os.getenv('SITE_URL', 'http://localhost:8080')
+# Configuração do Supabase
 CALLBACK_URL = f"{SITE_URL}/auth/callback"
 
 @app.before_request
