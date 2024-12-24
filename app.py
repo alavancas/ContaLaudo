@@ -53,9 +53,21 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 # Configuração do Supabase
+supabase_client_options = {
+    "auth": {
+        "autoRefreshToken": True,
+        "persistSession": True,
+        "detectSessionInUrl": True,
+        "flowType": "pkce",
+        "redirectTo": SITE_URL
+    }
+}
+
+# Inicialização do Supabase
 supabase = create_client(
     os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY')
+    os.getenv('SUPABASE_KEY'),
+    options=supabase_client_options
 )
 
 # Configuração do Supabase
@@ -435,10 +447,10 @@ def login():
             result = supabase.auth.sign_in_with_otp({
                 "email": email,
                 "options": {
-                    "email_redirect_to": "http://localhost:8080/verify-magic-link",
-                    "redirect_to": "http://localhost:8080/verify-magic-link",
+                    "email_redirect_to": f"{SITE_URL}/verify-magic-link",
+                    "redirect_to": f"{SITE_URL}/verify-magic-link",
                     "data": {
-                        "redirect_url": "http://localhost:8080/verify-magic-link"
+                        "redirect_url": f"{SITE_URL}/verify-magic-link"
                     }
                 }
             })
@@ -779,7 +791,10 @@ def magic_link():
                 "email": email,
                 "options": {
                     "email_redirect_to": f"{SITE_URL}/verify-magic-link",
-                    "redirect_to": f"{SITE_URL}/verify-magic-link"
+                    "redirect_to": f"{SITE_URL}/verify-magic-link",
+                    "data": {
+                        "redirect_to": f"{SITE_URL}/verify-magic-link"
+                    }
                 }
             })
             flash('Link de acesso enviado para seu email!', 'success')
