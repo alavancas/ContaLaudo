@@ -19,17 +19,23 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
 
 # Configuração do banco de dados usando a URL do Supabase
-SUPABASE_DB_URL = os.getenv('SUPABASE_DB_URL')
-if SUPABASE_DB_URL and 'postgresql://' in SUPABASE_DB_URL:
-    # Adiciona SSL mode=require para conexões em produção
-    if '?' in SUPABASE_DB_URL:
-        app.config['SQLALCHEMY_DATABASE_URI'] = f"{SUPABASE_DB_URL}&sslmode=require"
-    else:
-        app.config['SQLALCHEMY_DATABASE_URI'] = f"{SUPABASE_DB_URL}?sslmode=require"
-else:
-    app.config['SQLALCHEMY_DATABASE_URI'] = SUPABASE_DB_URL
+db_url = os.getenv('SUPABASE_DB_URL')
+if not db_url:
+    raise ValueError("SUPABASE_DB_URL não está configurada")
 
+# Modifica a URL para usar o pool de conexões
+db_url = db_url.replace('postgres://', 'postgresql://')
+if '?sslmode=' not in db_url:
+    db_url += '?sslmode=require'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 5,
+    'max_overflow': 2,
+    'pool_timeout': 30,
+    'pool_recycle': 1800,
+}
 
 # Inicialização dos objetos
 db = SQLAlchemy(app)
