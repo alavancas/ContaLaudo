@@ -37,14 +37,31 @@ SITE_URL = os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:8080')
 if SITE_URL.endswith('/'):
     SITE_URL = SITE_URL[:-1]
 
+print("=== Configurações do Ambiente ===", file=sys.stderr)
+print(f"SITE_URL: {SITE_URL}", file=sys.stderr)
+print(f"SUPABASE_URL: {os.getenv('SUPABASE_URL')}", file=sys.stderr)
+print(f"SUPABASE_KEY está definida: {'Sim' if os.getenv('SUPABASE_KEY') else 'Não'}", file=sys.stderr)
+print(f"RENDER_EXTERNAL_URL: {os.getenv('RENDER_EXTERNAL_URL')}", file=sys.stderr)
+print("================================", file=sys.stderr)
+
 # Configuração do Supabase
-supabase = create_client(
-    os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY')
-)
+try:
+    print("Iniciando configuração do Supabase...", file=sys.stderr)
+    supabase = create_client(
+        os.getenv('SUPABASE_URL'),
+        os.getenv('SUPABASE_KEY')
+    )
+    print("Supabase configurado com sucesso!", file=sys.stderr)
+except Exception as e:
+    print(f"Erro ao configurar Supabase: {str(e)}", file=sys.stderr)
+    print(f"Tipo do erro: {type(e)}", file=sys.stderr)
+    if hasattr(e, '__dict__'):
+        print(f"Atributos do erro: {e.__dict__}", file=sys.stderr)
+    raise e
 
 # Configuração do callback URL
 CALLBACK_URL = f"{SITE_URL}/auth/callback"
+print(f"URL de callback configurada: {CALLBACK_URL}", file=sys.stderr)
 
 @app.before_request
 def before_request():
@@ -715,11 +732,14 @@ def magic_link():
             return redirect(url_for('magic_link'))
 
         try:
-            print(f"Enviando magic link para {email}", file=sys.stderr)
+            print("\n=== Tentando enviar Magic Link ===", file=sys.stderr)
+            print(f"Email: {email}", file=sys.stderr)
             print(f"URL de callback: {CALLBACK_URL}", file=sys.stderr)
             print(f"Supabase URL: {os.getenv('SUPABASE_URL')}", file=sys.stderr)
+            print(f"Supabase Key (primeiros 10 caracteres): {os.getenv('SUPABASE_KEY')[:10]}...", file=sys.stderr)
             
             # Enviar magic link com método correto
+            print("Chamando Supabase sign_in_with_otp...", file=sys.stderr)
             res = supabase.auth.sign_in_with_otp(
                 email=email,
                 options={
@@ -729,14 +749,25 @@ def magic_link():
             )
             
             print(f"Resposta do Supabase: {res}", file=sys.stderr)
+            print("=== Magic Link enviado com sucesso ===\n", file=sys.stderr)
+            
             flash('Link de acesso enviado para seu email!', 'success')
             return redirect(url_for('magic_link'))
             
         except Exception as e:
-            print(f"Erro detalhado ao enviar magic link: {str(e)}", file=sys.stderr)
+            print("\n=== ERRO ao enviar Magic Link ===", file=sys.stderr)
+            print(f"Erro detalhado: {str(e)}", file=sys.stderr)
             print(f"Tipo do erro: {type(e)}", file=sys.stderr)
             if hasattr(e, '__dict__'):
                 print(f"Atributos do erro: {e.__dict__}", file=sys.stderr)
+            if hasattr(e, 'args'):
+                print(f"Argumentos do erro: {e.args}", file=sys.stderr)
+            if hasattr(e, 'response'):
+                print(f"Resposta do erro: {e.response}", file=sys.stderr)
+                if hasattr(e.response, 'text'):
+                    print(f"Texto da resposta: {e.response.text}", file=sys.stderr)
+            print("================================\n", file=sys.stderr)
+            
             flash('Erro ao enviar o link de acesso.', 'error')
             return redirect(url_for('magic_link'))
 
