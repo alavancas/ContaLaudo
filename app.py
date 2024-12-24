@@ -772,10 +772,7 @@ def verify_token():
 
         # Configura a sessão do Supabase com o token
         print("Configurando sessão do Supabase...", file=sys.stderr)
-        supabase.auth.set_session({
-            'access_token': access_token,
-            'refresh_token': refresh_token
-        })
+        supabase.auth.set_session(access_token, refresh_token)
         
         # Obtém os dados do usuário
         print("Obtendo dados do usuário...", file=sys.stderr)
