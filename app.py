@@ -32,14 +32,27 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+# Configuração do site URL
+SITE_URL = os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:8080')
+if SITE_URL.endswith('/'):
+    SITE_URL = SITE_URL[:-1]
+
 # Configuração do Supabase
 supabase = create_client(
     os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY')
+    os.getenv('SUPABASE_KEY'),
+    options={
+        'auth': {
+            'autoRefreshToken': True,
+            'persistSession': True,
+            'detectSessionInUrl': False,
+            'flowType': 'pkce',
+            'site_url': SITE_URL
+        }
+    }
 )
 
-# Configuração do site URL
-SITE_URL = os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:8080')
+# Configuração do callback URL
 CALLBACK_URL = f"{SITE_URL}/auth/callback"
 
 @app.before_request
@@ -718,7 +731,8 @@ def magic_link():
                     "email_redirect_to": f"{SITE_URL}/auth/callback",
                     "redirect_to": f"{SITE_URL}/auth/callback",
                     "data": {
-                        "email": email
+                        "email": email,
+                        "site_url": SITE_URL
                     }
                 }
             })

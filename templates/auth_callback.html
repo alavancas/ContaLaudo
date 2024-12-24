@@ -3,22 +3,35 @@
 <head>
     <title>Processando Autenticação</title>
     <script>
-        window.onload = function() {
-            try {
-                // Pega o hash da URL e remove o # inicial
-                const hash = window.location.hash.substring(1);
-                console.log('Hash:', hash);
-                
-                // Converte o hash em um objeto
-                const params = {};
-                hash.split('&').forEach(param => {
-                    const [key, value] = param.split('=');
+        function parseHash() {
+            const hash = window.location.hash.substring(1);
+            const params = {};
+            hash.split('&').forEach(param => {
+                const [key, value] = param.split('=');
+                if (key && value) {
                     params[key] = decodeURIComponent(value);
-                });
+                }
+            });
+            return params;
+        }
+
+        function redirectToLogin(error) {
+            console.error('Erro:', error);
+            alert('Erro ao processar autenticação: ' + error);
+            window.location.href = '/login';
+        }
+
+        window.onload = async function() {
+            try {
+                console.log('URL:', window.location.href);
+                const params = parseHash();
                 console.log('Params:', params);
 
-                // Envia os tokens para o backend
-                fetch('/verify-token', {
+                if (!params.access_token) {
+                    throw new Error('Token não encontrado na URL');
+                }
+
+                const response = await fetch('/verify-token', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -27,33 +40,50 @@
                         access_token: params.access_token,
                         refresh_token: params.refresh_token
                     })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Response:', data);
-                    if (data.success) {
-                        window.location.href = data.redirect;
-                    } else {
-                        alert('Erro ao verificar token: ' + (data.error || 'Erro desconhecido'));
-                        window.location.href = '/login';
-                    }
-                })
-                .catch(error => {
-                    console.error('Erro:', error);
-                    alert('Erro ao processar autenticação');
-                    window.location.href = '/login';
                 });
+
+                const data = await response.json();
+                console.log('Response:', data);
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Erro ao verificar token');
+                }
+
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    throw new Error(data.error || 'Erro desconhecido');
+                }
             } catch (error) {
-                console.error('Erro ao processar callback:', error);
-                alert('Erro ao processar autenticação');
-                window.location.href = '/login';
+                redirectToLogin(error.message);
             }
         };
     </script>
+    <style>
+        .loading {
+            text-align: center;
+            margin-top: 50px;
+            font-family: Arial, sans-serif;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            margin: 20px auto;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
-    <div style="text-align: center; margin-top: 50px;">
+    <div class="loading">
         <h2>Processando sua autenticação...</h2>
+        <div class="spinner"></div>
         <p>Por favor, aguarde.</p>
     </div>
 </body>
