@@ -20,6 +20,12 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
 
 # Configuração do banco de dados
 db_url = os.getenv('SUPABASE_DB_URL')
+if not db_url:
+    raise ValueError("SUPABASE_DB_URL não está configurada")
+
+# Remove prefixo DATABASE_URL= se existir
+if db_url.startswith('DATABASE_URL='):
+    db_url = db_url.replace('DATABASE_URL=', '')
 
 # Configuração específica para o pooling do Supabase
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
