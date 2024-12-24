@@ -738,12 +738,15 @@ def magic_link():
             print(f"Supabase URL: {os.getenv('SUPABASE_URL')}", file=sys.stderr)
             print(f"Supabase Key (primeiros 10 caracteres): {os.getenv('SUPABASE_KEY')[:10]}...", file=sys.stderr)
             
-            # Usando o método mais básico do Supabase
-            print("Chamando Supabase magiclink...", file=sys.stderr)
-            res = supabase.auth.magiclink(
-                email=email,
-                redirect_to=CALLBACK_URL
-            )
+            # Usando o método da versão 1.0.3 do Supabase
+            print("Chamando Supabase signInWithOtp...", file=sys.stderr)
+            res = supabase.auth.sign_in({
+                "email": email,
+                "options": {
+                    "email_redirect_to": CALLBACK_URL,
+                    "data": {"email": email}
+                }
+            })
             
             print(f"Resposta do Supabase: {res}", file=sys.stderr)
             print("=== Magic Link enviado com sucesso ===\n", file=sys.stderr)
