@@ -27,6 +27,17 @@ if not db_url:
 if db_url.startswith('DATABASE_URL='):
     db_url = db_url.replace('DATABASE_URL=', '')
 
+# Força o uso do pooler em produção
+if os.getenv('RENDER'):
+    # Extrai usuário e senha da URL atual
+    from urllib.parse import urlparse
+    parsed = urlparse(db_url)
+    username = parsed.username
+    password = parsed.password
+    
+    # Constrói a URL do pooler
+    db_url = f"postgresql://{username}.svrzytagzbrvnxnpwiux:{password}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
+
 # Configuração específica para o pooling do Supabase
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
