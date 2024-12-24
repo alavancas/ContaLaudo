@@ -4,7 +4,7 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from flask_migrate import Migrate
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-from supabase import create_client
+from supabase import Client, create_client
 from dotenv import load_dotenv
 import os
 import sys
@@ -28,13 +28,12 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 # Configuração do Supabase
-supabase = create_client(
-    os.getenv('SUPABASE_URL'),
-    os.getenv('SUPABASE_KEY')
-)
+url = os.getenv('SUPABASE_URL')
+key = os.getenv('SUPABASE_KEY')
+supabase: Client = create_client(url, key)
 
 # Configuração do site URL para o Supabase
-SITE_URL = "http://localhost:8080"
+SITE_URL = os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:8080')
 CALLBACK_URL = f"{SITE_URL}/auth/callback"
 
 @app.before_request
