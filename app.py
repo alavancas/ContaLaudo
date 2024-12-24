@@ -19,24 +19,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
 
 # Configuração do banco de dados
-db_url = os.getenv('SUPABASE_DB_URL')
+db_url = os.getenv('SUPABASE_DB_URL_POOLER')
 if not db_url:
-    raise ValueError("SUPABASE_DB_URL não está configurada")
-
-# Remove prefixo DATABASE_URL= se existir
-if db_url.startswith('DATABASE_URL='):
-    db_url = db_url.replace('DATABASE_URL=', '')
-
-# Força o uso do pooler em produção
-if os.getenv('RENDER'):
-    # Extrai usuário e senha da URL atual
-    from urllib.parse import urlparse
-    parsed = urlparse(db_url)
-    password = parsed.password
-    
-    # Constrói a URL do pooler com o formato correto
-    db_url = f"postgresql://postgres.svrzytagzbrvnxnpwiux:{password}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
-    print(f"URL do banco: {db_url}")  # Para debug
+    raise ValueError("SUPABASE_DB_URL_POOLER não está configurada")
 
 # Configuração específica para o pooling do Supabase
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
