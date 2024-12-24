@@ -19,12 +19,18 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
 
 # Configuração do banco de dados
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SUPABASE_DB_URL')
+db_url = os.getenv('SUPABASE_DB_URL')
+
+# Configuração específica para o pooling do Supabase
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_size': 10,
+    'max_overflow': 2,
     'connect_args': {
-        'sslmode': 'require',
-        'connect_timeout': 60,
+        'connect_timeout': 10,
+        'application_name': 'contalaudo'
     }
 }
 
