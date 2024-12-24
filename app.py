@@ -17,7 +17,18 @@ load_dotenv()
 # Configuração do Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SUPABASE_DB_URL')
+
+# Configuração do banco de dados usando a URL do Supabase
+SUPABASE_DB_URL = os.getenv('SUPABASE_DB_URL')
+if SUPABASE_DB_URL and 'postgresql://' in SUPABASE_DB_URL:
+    # Adiciona SSL mode=require para conexões em produção
+    if '?' in SUPABASE_DB_URL:
+        app.config['SQLALCHEMY_DATABASE_URI'] = f"{SUPABASE_DB_URL}&sslmode=require"
+    else:
+        app.config['SQLALCHEMY_DATABASE_URI'] = f"{SUPABASE_DB_URL}?sslmode=require"
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = SUPABASE_DB_URL
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Inicialização dos objetos
