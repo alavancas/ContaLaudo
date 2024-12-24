@@ -18,23 +18,14 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'your-secret-key')
 
-# Configuração do banco de dados usando a URL do Supabase
-db_url = os.getenv('SUPABASE_DB_URL')
-if not db_url:
-    raise ValueError("SUPABASE_DB_URL não está configurada")
-
-# Modifica a URL para usar o pool de conexões
-db_url = db_url.replace('postgres://', 'postgresql://')
-if '?sslmode=' not in db_url:
-    db_url += '?sslmode=require'
-
-app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+# Configuração do banco de dados
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SUPABASE_DB_URL')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 5,
-    'max_overflow': 2,
-    'pool_timeout': 30,
-    'pool_recycle': 1800,
+    'connect_args': {
+        'sslmode': 'require',
+        'connect_timeout': 60,
+    }
 }
 
 # Inicialização dos objetos
