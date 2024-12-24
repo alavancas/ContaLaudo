@@ -1,0 +1,964 @@
+{% extends "base.html" %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Funções auxiliares
+function criarGraficos(dados) {
+    const cores = [
+        'rgba(34, 197, 94, 0.8)',
+        'rgba(59, 130, 246, 0.8)',
+        'rgba(249, 115, 22, 0.8)',
+        'rgba(168, 85, 247, 0.8)',
+        'rgba(236, 72, 153, 0.8)',
+        'rgba(234, 179, 8, 0.8)'
+    ];
+
+    if (periodosChart) periodosChart.destroy();
+    if (laudosChart) laudosChart.destroy();
+
+    const opcoesBase = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: {
+                    color: '#FFFFFF',
+                    padding: 20,
+                    font: { 
+                        size: 12,
+                        family: "'Inter', sans-serif",
+                        weight: '400'
+                    },
+                    usePointStyle: true,
+                    pointStyle: 'circle'
+                }
+            },
+            tooltip: {
+                titleColor: '#FFFFFF',
+                bodyColor: '#FFFFFF',
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                padding: 12,
+                callbacks: {
+                    label: function(context) {
+                        const label = context.label || '';
+                        const value = context.raw;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return `${label}: ${percentage}% (${value})`;
+                    }
+                }
+            }
+        }
+    };
+
+    const ctxPeriodos = document.getElementById('periodos-chart');
+    if (ctxPeriodos) {
+        const dadosPeriodos = dados.graficos.periodos_por_instituicao;
+        const total = dadosPeriodos.reduce((acc, curr) => acc + curr.value, 0);
+        
+        periodosChart = new Chart(ctxPeriodos, {
+            type: 'doughnut',
+            data: {
+                labels: dadosPeriodos.map(d => {
+                    const percentage = ((d.value / total) * 100).toFixed(1);
+                    return `${d.label} (${percentage}%)`;
+                }),
+                datasets: [{
+                    data: dadosPeriodos.map(d => d.value),
+                    backgroundColor: cores,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                ...opcoesBase,
+                plugins: {
+                    ...opcoesBase.plugins,
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label.split(' (')[0];
+                                const value = context.raw;
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${percentage}% (${value} períodos)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    const ctxLaudos = document.getElementById('laudos-chart');
+    if (ctxLaudos) {
+        const dadosLaudos = dados.graficos.valor_por_tipo_laudo;
+        const total = dadosLaudos.reduce((acc, curr) => acc + curr.value, 0);
+        
+        laudosChart = new Chart(ctxLaudos, {
+            type: 'doughnut',
+            data: {
+                labels: dadosLaudos.map(d => {
+                    const percentage = ((d.value / total) * 100).toFixed(1);
+                    return `${d.label} (${percentage}%)`;
+                }),
+                datasets: [{
+                    data: dadosLaudos.map(d => d.value),
+                    backgroundColor: cores,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                ...opcoesBase,
+                plugins: {
+                    ...opcoesBase.plugins,
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label.split(' (')[0];
+                                const value = context.raw;
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${percentage}% (R$ ${value.toFixed(2)})`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+// Variáveis globais
+let periodosChart = null;
+let laudosChart = null;
+
+// Inicializar tudo quando a página carregar completamente
+window.addEventListener('load', function() {
+    // Funções de manipulação do dropdown
+    window.toggleDropdown = function() {
+        const dropdown = document.getElementById('instituicoes-dropdown');
+        dropdown.classList.toggle('show');
+    };
+
+    window.selecionarTodas = function(event) {
+        event.stopPropagation();
+        const checkboxes = document.querySelectorAll('.instituicao-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = true);
+        atualizarTextoSelecao();
+        atualizarDashboard();
+    };
+
+    window.limparSelecao = function(event) {
+        event.stopPropagation();
+        const checkboxes = document.querySelectorAll('.instituicao-checkbox');
+        checkboxes.forEach(checkbox => checkbox.checked = false);
+        atualizarTextoSelecao();
+        atualizarDashboard();
+    };
+
+    window.atualizarTextoSelecao = function() {
+        const checkboxes = document.querySelectorAll('.instituicao-checkbox');
+        const selecionadas = Array.from(checkboxes).filter(cb => cb.checked);
+        const texto = document.getElementById('selected-count');
+        
+        if (selecionadas.length === 0) {
+            texto.textContent = 'Selecione as Instituições';
+        } else if (selecionadas.length === checkboxes.length) {
+            texto.textContent = 'Todas as Instituições';
+        } else {
+            texto.textContent = `${selecionadas.length} Instituição(ões)`;
+        }
+    };
+
+    // Event listeners
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('instituicoes-dropdown');
+        if (!event.target.closest('.dropdown')) {
+            dropdown.classList.remove('show');
+        }
+    });
+
+    const dropdownMenu = document.querySelector('.dropdown-menu');
+    if (dropdownMenu) {
+        dropdownMenu.addEventListener('click', function(event) {
+            event.stopPropagation();
+        });
+    }
+
+    // Funções de atualização
+    window.getSelectedInstituicoes = function() {
+        const checkboxes = document.querySelectorAll('.instituicao-checkbox:checked');
+        return Array.from(checkboxes).map(cb => cb.value);
+    };
+
+    window.atualizarDashboard = async function() {
+        const mes = document.getElementById('mes').value;
+        const ano = document.getElementById('ano').value;
+        const instituicoes = getSelectedInstituicoes();
+
+        // Se não houver instituições selecionadas, zerar todos os valores
+        if (instituicoes.length === 0) {
+            document.getElementById('total-laudos').textContent = '0';
+            document.getElementById('total-periodos').textContent = '0';
+            document.getElementById('valor-producao').textContent = 'R$ 0.00';
+            document.getElementById('valor-periodos').textContent = 'R$ 0.00';
+            document.getElementById('valor-total').textContent = '0.00';
+            
+            // Limpar gráficos
+            if (periodosChart) periodosChart.destroy();
+            if (laudosChart) laudosChart.destroy();
+            
+            // Limpar lista de períodos
+            const periodosList = document.getElementById('periodos-list');
+            periodosList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-calendar-plus empty-icon"></i>
+                    <h2>Selecione uma instituição</h2>
+                    <p>Os períodos aparecerão aqui</p>
+                </div>
+            `;
+            return;
+        }
+        
+        const params = new URLSearchParams();
+        params.append('mes', mes);
+        params.append('ano', ano);
+        instituicoes.forEach(inst => params.append('instituicoes[]', inst));
+        
+        try {
+            const response = await fetch(`/api/dashboard?${params.toString()}`);
+            if (!response.ok) throw new Error('Erro na resposta da API');
+            const data = await response.json();
+            
+            // Atualizar cards principais
+            document.getElementById('total-laudos').textContent = data.total_laudos;
+            document.getElementById('total-periodos').textContent = data.total_periodos;
+            document.getElementById('valor-producao').textContent = `R$ ${data.total_valor.toFixed(2)}`;
+            document.getElementById('valor-periodos').textContent = `R$ ${data.total_periodos_valor.toFixed(2)}`;
+            document.getElementById('valor-total').textContent = `${(data.total_valor + data.total_periodos_valor).toFixed(2)}`;
+            
+            // Atualizar gráficos
+            criarGraficos(data);
+            
+            // Atualizar lista de períodos
+            atualizarListaPeriodos(data.periodos);
+        } catch (error) {
+            console.error('Erro ao atualizar dashboard:', error);
+        }
+    };
+
+    window.atualizarListaPeriodos = function(periodos) {
+        const periodosList = document.getElementById('periodos-list');
+        const template = document.getElementById('periodo-template');
+        
+        periodosList.innerHTML = '';
+        
+        if (periodos.length === 0) {
+            periodosList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-calendar-plus empty-icon"></i>
+                    <h2>Selecione uma instituição</h2>
+                    <p>Os períodos aparecerão aqui</p>
+                </div>
+            `;
+            return;
+        }
+        
+        periodos.forEach(periodo => {
+            const clone = template.content.cloneNode(true);
+            
+            clone.querySelector('.periodo-instituicao').textContent = periodo.instituicao;
+            clone.querySelector('.periodo-criacao').textContent = periodo.data_criacao;
+            clone.querySelector('.total-laudos').textContent = periodo.total_laudos;
+            clone.querySelector('.valor-total').textContent = `R$ ${periodo.valor_total.toFixed(2)}`;
+            
+            const valorFixoContainer = clone.querySelector('.valor-fixo-container');
+            if (periodo.valor_fixo > 0) {
+                valorFixoContainer.style.display = 'block';
+                clone.querySelector('.valor-fixo').textContent = `R$ ${periodo.valor_fixo.toFixed(2)}`;
+            }
+            
+            const periodoItem = clone.querySelector('.periodo-item');
+            periodoItem.onclick = () => window.location.href = `/periodos/${periodo.id}`;
+            
+            periodosList.appendChild(clone);
+        });
+    };
+
+    // Adicionar event listeners
+    const mesSelect = document.getElementById('mes');
+    if (mesSelect) {
+        mesSelect.addEventListener('change', atualizarDashboard);
+    }
+
+    const anoSelect = document.getElementById('ano');
+    if (anoSelect) {
+        anoSelect.addEventListener('change', atualizarDashboard);
+    }
+
+    const instituicoesCheckboxes = document.querySelectorAll('input[name="instituicoes[]"]');
+    instituicoesCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', atualizarDashboard);
+    });
+
+    const selecionarTodasBtn = document.getElementById('selecionar-todas');
+    if (selecionarTodasBtn) {
+        selecionarTodasBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const checkboxes = document.querySelectorAll('input[name="instituicoes[]"]');
+            checkboxes.forEach(cb => cb.checked = true);
+            atualizarDashboard();
+        });
+    }
+
+    const limparSelecaoBtn = document.getElementById('limpar-selecao');
+    if (limparSelecaoBtn) {
+        limparSelecaoBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const checkboxes = document.querySelectorAll('input[name="instituicoes[]"]');
+            checkboxes.forEach(cb => cb.checked = false);
+            atualizarDashboard();
+        });
+    }
+
+    // Inicializar dashboard
+    selecionarTodas({ stopPropagation: () => {} });
+    atualizarDashboard();
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <div class="filtros">
+        <div class="filter-section">
+            <div class="dropdown">
+                <div class="dropdown-toggle" onclick="toggleDropdown()">
+                    <span id="selected-count">Todas as Instituições</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="dropdown-menu" id="instituicoes-dropdown">
+                    <div class="dropdown-menu-header">
+                        <button type="button" onclick="selecionarTodas(event)" class="btn">
+                            <i class="fas fa-check-double"></i> Todas
+                        </button>
+                        <button type="button" onclick="limparSelecao(event)" class="btn">
+                            <i class="fas fa-times"></i> Limpar
+                        </button>
+                    </div>
+                    <div class="dropdown-menu-content">
+                        {% for instituicao in instituicoes %}
+                        <label class="dropdown-item">
+                            <input type="checkbox" 
+                                   class="instituicao-checkbox" 
+                                   name="instituicoes[]"
+                                   value="{{ instituicao.id }}" 
+                                   onchange="atualizarTextoSelecao(); atualizarDashboard()">
+                            <span class="instituicao-nome">{{ instituicao.nome }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="date-filters">
+                <select id="mes" onchange="atualizarDashboard()">
+                    <option value="1" {% if mes_atual == 1 %}selected{% endif %}>Janeiro</option>
+                    <option value="2" {% if mes_atual == 2 %}selected{% endif %}>Fevereiro</option>
+                    <option value="3" {% if mes_atual == 3 %}selected{% endif %}>Março</option>
+                    <option value="4" {% if mes_atual == 4 %}selected{% endif %}>Abril</option>
+                    <option value="5" {% if mes_atual == 5 %}selected{% endif %}>Maio</option>
+                    <option value="6" {% if mes_atual == 6 %}selected{% endif %}>Junho</option>
+                    <option value="7" {% if mes_atual == 7 %}selected{% endif %}>Julho</option>
+                    <option value="8" {% if mes_atual == 8 %}selected{% endif %}>Agosto</option>
+                    <option value="9" {% if mes_atual == 9 %}selected{% endif %}>Setembro</option>
+                    <option value="10" {% if mes_atual == 10 %}selected{% endif %}>Outubro</option>
+                    <option value="11" {% if mes_atual == 11 %}selected{% endif %}>Novembro</option>
+                    <option value="12" {% if mes_atual == 12 %}selected{% endif %}>Dezembro</option>
+                </select>
+                <select id="ano" onchange="atualizarDashboard()">
+                    {% for ano in range(2023, ano_atual + 1) %}
+                    <option value="{{ ano }}" {% if ano == ano_atual %}selected{% endif %}>{{ ano }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="top-stats">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-hospital"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value" id="total-periodos">{{ total_periodos }}</span>
+                    <span class="stat-label">Períodos</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-file-medical"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value" id="total-laudos">{{ total_laudos }}</span>
+                    <span class="stat-label">Laudos</span>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value" id="valor-producao">R$ {{ "%.2f"|format(total_valor) }}</span>
+                    <span class="stat-label">Valor da Produção</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="bottom-stats">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value" id="valor-periodos">R$ {{ "%.2f"|format(total_periodos_valor) }}</span>
+                    <span class="stat-label">Valor Períodos (Fixos)</span>
+                </div>
+            </div>
+
+            <div class="stat-card total-card">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-value">
+                        <span class="currency">R$</span>
+                        <span class="amount" id="valor-total">{{ "%.2f"|format(total_valor + total_periodos_valor) }}</span>
+                    </span>
+                    <span class="stat-label">Total (Fixo + Produção)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="charts-container">
+        <div class="chart-card">
+            <h3>Períodos por Instituição</h3>
+            <div class="chart-container">
+                <canvas id="periodos-chart"></canvas>
+            </div>
+        </div>
+        <div class="chart-card">
+            <h3>Valor por Tipo de Laudo</h3>
+            <div class="chart-container">
+                <canvas id="laudos-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="periodos-section">
+        <h3>Histórico de Períodos</h3>
+        <div class="periodos-list" id="periodos-list">
+            {% if not todos_periodos %}
+                <div class="empty-state">
+                    <i class="fas fa-calendar-plus empty-icon"></i>
+                    <h2>Selecione uma instituição</h2>
+                    <p>Os períodos aparecerão aqui</p>
+                </div>
+            {% else %}
+                {% for periodo in todos_periodos %}
+                    <div class="periodo-item" onclick="window.location.href='/periodos/{{ periodo.id }}'">
+                        <div class="periodo-info">
+                            <div>
+                                <span class="periodo-instituicao">{{ periodo.instituicao.nome }}</span>
+                                <span class="periodo-criacao">{{ periodo.data_criacao.strftime('%d/%m/%Y às %H:%M') }}</span>
+                            </div>
+                            <div class="stats-info">
+                                <div class="stats-row">
+                                    <span class="stats-label">Laudos:</span>
+                                    <span class="stats-value">{{ periodo.laudos|length }}</span>
+                                </div>
+                                <div class="stats-row">
+                                    <span class="stats-label">Valor:</span>
+                                    <span class="stats-value">R$ {{ "%.2f"|format(periodo.laudos|sum(attribute='valor')) }}</span>
+                                </div>
+                                {% if periodo.valor_fixo %}
+                                    <div class="stats-row">
+                                        <span class="stats-label">Fixo:</span>
+                                        <span class="stats-value">R$ {{ "%.2f"|format(periodo.valor_fixo) }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+
+    <template id="periodo-template">
+        <div class="periodo-item">
+            <div class="periodo-info">
+                <div>
+                    <span class="periodo-instituicao"></span>
+                    <span class="periodo-criacao"></span>
+                </div>
+                <div class="stats-info">
+                    <div class="stats-row">
+                        <span class="stats-label">Laudos:</span>
+                        <span class="stats-value total-laudos"></span>
+                    </div>
+                    <div class="stats-row">
+                        <span class="stats-label">Valor:</span>
+                        <span class="stats-value valor-total"></span>
+                    </div>
+                    <div class="stats-row valor-fixo-container" style="display: none;">
+                        <span class="stats-label">Fixo:</span>
+                        <span class="stats-value valor-fixo"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <a href="{{ url_for('selecionar_instituicao') }}" class="add-btn">
+        <i class="fas fa-plus"></i>
+        Adicionar Período
+    </a>
+</div>
+
+<style>
+.dashboard {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.filtros {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    background: var(--surface-color);
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+}
+
+.filter-section {
+    display: flex;
+    gap: 16px;
+    flex: 1;
+    min-width: 0;
+}
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+    min-width: 200px;
+    flex: 1;
+}
+
+.dropdown-toggle {
+    background: var(--background-color);
+    color: var(--text-primary);
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s;
+}
+
+.dropdown-toggle:hover {
+    border-color: var(--primary-color);
+}
+
+.dropdown-toggle::after {
+    display: none;
+}
+
+.date-filters {
+    display: flex;
+    gap: 16px;
+    flex: 1;
+}
+
+.date-filters select {
+    flex: 1;
+    background: var(--background-color);
+    color: var(--text-primary);
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.date-filters select:hover {
+    border-color: var(--primary-color);
+}
+
+.empty-state {
+    background: var(--surface-color);
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    margin: 20px 0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.empty-state .empty-icon {
+    font-size: 3rem;
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+}
+
+.empty-state h2 {
+    color: var(--text-primary);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.periodos-section {
+    margin-top: 40px;
+}
+
+.periodos-section h3 {
+    margin-bottom: 16px;
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+}
+
+.periodos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.periodo-item {
+    background-color: var(--surface-color);
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.periodo-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.periodo-info {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.periodo-instituicao {
+    display: block;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.periodo-criacao {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.stats-info {
+    text-align: right;
+}
+
+.stats-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.stats-label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.stats-value {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+    .dashboard {
+        padding: 12px;
+    }
+
+    .filter-section {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .dropdown, .date-filters {
+        flex: 0 0 100%;
+    }
+
+    .date-filters {
+        gap: 8px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .top-stats, .bottom-stats {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .stat-card {
+        margin-bottom: 0;
+    }
+
+    .charts-container {
+        grid-template-columns: 1fr;
+        padding: 0;
+        margin: 12px 0;
+    }
+
+    .chart-card {
+        padding: 12px;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .chart-card .chart-container {
+        height: 250px;
+    }
+}
+
+@media (max-width: 1200px) {
+    .chart-card .chart-container {
+        height: 220px;
+    }
+}
+
+@media (max-width: 768px) {
+    .charts-container {
+        grid-template-columns: 1fr;
+        padding: 0;
+        gap: 12px;
+    }
+    
+    .chart-card {
+        padding: 12px;
+        margin: 0;
+        width: 100%;
+    }
+
+    .chart-card .chart-container {
+        height: 250px;
+    }
+
+    .chart-card h3 {
+        font-size: 0.9rem;
+        margin-bottom: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .charts-container {
+        margin: 12px 0;
+        gap: 12px;
+    }
+
+    .chart-card .chart-container {
+        height: 220px;
+    }
+}
+
+.stats-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.top-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.bottom-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+    .top-stats {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    
+    .bottom-stats {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+}
+
+.stat-card {
+    background: var(--surface-color);
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.stat-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5em;
+    color: var(--primary-color);
+}
+
+.stat-info {
+    flex: 1;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5em;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+
+.total-card {
+    background-color: rgba(34, 197, 94, 0.2);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.total-card .stat-label {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.total-card .currency {
+    font-weight: bold;
+    color: white;
+}
+
+.total-card .amount {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.total-card:hover {
+    background-color: rgba(34, 197, 94, 0.3);
+}
+
+.charts-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+@media (max-width: 768px) {
+    .charts-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.chart-card {
+    background: var(--surface-color);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.chart-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.chart-card h3 {
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+.add-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: var(--primary-color);
+    color: var(--text-primary);
+    padding: 12px 24px;
+    border-radius: 24px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px rgba(29, 185, 84, 0.3);
+    font-weight: 600;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.add-btn:hover {
+    transform: translateY(-2px);
+    background-color: #1ed760;
+}
+
+.add-btn i {
+    font-size: 1.2rem;
+}
+</style>
+
+{% endblock %}

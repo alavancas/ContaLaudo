@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="historico-container">
+    <h1>Histórico de Períodos</h1>
+
+    {% if periodos_por_instituicao %}
+        {% for instituicao, periodos in periodos_por_instituicao.items() %}
+            <div class="instituicao-section">
+                <h2>{{ instituicao }}</h2>
+                <div class="periodos-grid">
+                    {% for periodo in periodos %}
+                        <a href="{{ url_for('detalhes_periodo', id=periodo.id) }}" class="periodo-card">
+                            <div class="periodo-header">
+                                <span class="periodo-data">{{ periodo.data_criacao.strftime('%d/%m/%Y') }}</span>
+                                {% if periodo.valor_fixo %}
+                                    <span class="valor-fixo-badge">Valor Fixo: R$ {{ "%.2f"|format(periodo.valor_fixo) }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="periodo-stats">
+                                <div class="stat-item">
+                                    <span class="stat-label">Total de Laudos</span>
+                                    <span class="stat-value">{{ periodo.total_laudos }}</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Valor Total</span>
+                                    <span class="stat-value">R$ {{ "%.2f"|format(periodo.valor_total) }}</span>
+                                </div>
+                            </div>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <i class="fas fa-calendar-alt empty-icon"></i>
+            <h2>Nenhum período encontrado</h2>
+            <p>Você ainda não criou nenhum período. Comece criando um agora!</p>
+            <a href="{{ url_for('novo_periodo') }}" class="btn btn-primary">Criar Período</a>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+.historico-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.historico-container h1 {
+    font-size: 2rem;
+    margin-bottom: 30px;
+    color: var(--text-primary);
+}
+
+.instituicao-section {
+    margin-bottom: 40px;
+}
+
+.instituicao-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+.periodos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.periodo-card {
+    background-color: var(--surface-color);
+    border-radius: 12px;
+    padding: 20px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.periodo-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.periodo-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.periodo-data {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.valor-fixo-badge {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.periodo-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.stat-item {
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+}
+
+.empty-state h2 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.empty-state p {
+    font-size: 1rem;
+    margin-bottom: 20px;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-color-dark);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verificando...</title>
+    <script>
+        window.onload = function() {
+            // Pega o hash da URL (parte após #)
+            const hash = window.location.hash.substring(1);
+            if (hash) {
+                // Cria um formulário para enviar o hash
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/process-magic-link';
+
+                // Adiciona o hash como um campo oculto
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'hash';
+                input.value = hash;
+                form.appendChild(input);
+
+                // Adiciona o formulário à página e o envia
+                document.body.appendChild(form);
+                form.submit();
+            } else {
+                window.location.href = '/login?error=no_token';
+            }
+        }
+    </script>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 50px;">
+        <h2>Verificando seu acesso...</h2>
+        <p>Por favor, aguarde...</p>
+    </div>
+</body>
+</html>

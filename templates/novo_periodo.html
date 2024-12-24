@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="form-container">
+    <h2>Novo Período</h2>
+    <form method="POST" action="{{ url_for('novo_periodo') }}" class="periodo-form">
+        <div class="form-group">
+            <label for="instituicao">Instituição</label>
+            <select name="instituicao_id" id="instituicao" {% if not nova_instituicao %}required{% endif %}>
+                <option value="">Selecione uma instituição</option>
+                {% for instituicao in instituicoes %}
+                <option value="{{ instituicao.id }}">{{ instituicao.nome }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-separator">ou</div>
+
+        <div class="form-group">
+            <label for="nova_instituicao">Nova Instituição</label>
+            <input type="text" 
+                   name="nova_instituicao" 
+                   id="nova_instituicao" 
+                   {% if nova_instituicao %}required{% endif %}
+                   placeholder="Nome da nova instituição">
+        </div>
+
+        <div class="form-group">
+            <label for="tipo_remuneracao">Tipo de Remuneração</label>
+            <select name="tipo_remuneracao" id="tipo_remuneracao" required onchange="toggleValorFixo()">
+                <option value="">Selecione o tipo</option>
+                <option value="fixo">Fixo</option>
+                <option value="producao">Produção</option>
+                <option value="fixo_producao">Fixo + Produção</option>
+                <option value="pontuacao">Pontuação (Rede D'Or)</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="valor_fixo_group" style="display: none;">
+            <label for="valor_fixo">Valor Fixo</label>
+            <div class="input-group">
+                <span class="input-prefix">R$</span>
+                <input type="number" 
+                       name="valor_fixo" 
+                       id="valor_fixo" 
+                       step="0.01" 
+                       min="0"
+                       placeholder="0,00">
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn-primary">Criar Período</button>
+            <a href="{{ url_for('index') }}" class="btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-container {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.periodo-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.form-group select,
+.form-group input {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 10px 16px;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.form-separator {
+    text-align: center;
+    color: var(--text-secondary);
+    position: relative;
+    margin: 8px 0;
+}
+
+.form-separator::before,
+.form-separator::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 45%;
+    height: 1px;
+    background-color: var(--text-secondary);
+}
+
+.form-separator::before {
+    left: 0;
+}
+
+.form-separator::after {
+    right: 0;
+}
+
+.input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-prefix {
+    position: absolute;
+    left: 12px;
+    color: var(--text-secondary);
+}
+
+.input-group input {
+    padding-left: 36px;
+    width: 100%;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+    transition: background-color 0.2s;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+.btn-primary:hover {
+    background-color: #1ed760;
+}
+
+.btn-secondary {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--text-secondary);
+}
+
+.btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleValorFixo() {
+    const tipoRemuneracao = document.getElementById('tipo_remuneracao').value;
+    const valorFixoGroup = document.getElementById('valor_fixo_group');
+    const valorFixoInput = document.getElementById('valor_fixo');
+    
+    console.log('toggleValorFixo:', tipoRemuneracao);
+    
+    if (tipoRemuneracao === 'fixo' || tipoRemuneracao === 'fixo_producao') {
+        valorFixoGroup.style.display = 'block';
+        valorFixoInput.required = true;
+    } else {
+        valorFixoGroup.style.display = 'none';
+        valorFixoInput.required = false;
+        valorFixoInput.value = '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM carregado');
+    
+    const form = document.querySelector('.periodo-form');
+    const instituicaoSelect = document.getElementById('instituicao');
+    const novaInstituicaoInput = document.getElementById('nova_instituicao');
+    
+    form.addEventListener('submit', function(event) {
+        event.preventDefault();
+        console.log('Form submit');
+        
+        // Validar campos
+        let isValid = true;
+        const tipoRemuneracao = document.getElementById('tipo_remuneracao').value;
+        const valorFixo = document.getElementById('valor_fixo').value;
+        
+        // Validar instituição
+        if (!instituicaoSelect.value && !novaInstituicaoInput.value.trim()) {
+            console.log('Erro: Selecione uma instituição ou crie uma nova');
+            isValid = false;
+        }
+        
+        // Validar tipo de remuneração
+        if (!tipoRemuneracao) {
+            console.log('Erro: Selecione o tipo de remuneração');
+            isValid = false;
+        }
+        
+        // Validar valor fixo quando necessário
+        if ((tipoRemuneracao === 'fixo' || tipoRemuneracao === 'fixo_producao') && !valorFixo) {
+            console.log('Erro: Valor fixo é obrigatório para o tipo selecionado');
+            isValid = false;
+        }
+        
+        if (isValid) {
+            console.log('Form válido, enviando...');
+            form.submit();
+        }
+    });
+    
+    function atualizarCamposRequired() {
+        const temInstituicao = instituicaoSelect.value !== '';
+        const temNovaInstituicao = novaInstituicaoInput.value.trim() !== '';
+        
+        console.log('atualizarCamposRequired:', { temInstituicao, temNovaInstituicao });
+        
+        instituicaoSelect.required = !temNovaInstituicao;
+        novaInstituicaoInput.required = !temInstituicao;
+    }
+    
+    // Atualizar quando digitar no campo de nova instituição
+    novaInstituicaoInput.addEventListener('input', function() {
+        console.log('Nova instituição input:', this.value);
+        if (this.value.trim()) {
+            instituicaoSelect.value = '';
+        }
+        atualizarCamposRequired();
+    });
+    
+    // Atualizar quando selecionar uma instituição existente
+    instituicaoSelect.addEventListener('change', function() {
+        console.log('Instituição select:', this.value);
+        if (this.value) {
+            novaInstituicaoInput.value = '';
+        }
+        atualizarCamposRequired();
+    });
+    
+    // Executar uma vez na inicialização
+    atualizarCamposRequired();
+    toggleValorFixo();
+});
+</script>
+{% endblock %}

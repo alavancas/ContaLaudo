@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContaLaudo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #1DB954;
+            --surface-color: #282828;
+            --background-color: #121212;
+            --text-primary: #FFFFFF;
+            --text-secondary: #B3B3B3;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .navbar {
+            background-color: var(--surface-color);
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .navbar-menu a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: color 0.2s;
+        }
+
+        .navbar-menu a:hover,
+        .navbar-menu a.active {
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        /* Estilo para tabelas */
+        .table {
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .table th {
+            background-color: rgba(29, 185, 84, 0.1);
+            color: var(--primary-color);
+            font-weight: 600;
+            border-bottom: none;
+        }
+
+        .table td {
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(29, 185, 84, 0.05);
+        }
+
+        /* Estilo para modais */
+        .modal-content {
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+        }
+
+        .modal-header {
+            border-bottom-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .modal-footer {
+            border-top-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .form-control, .form-select {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text-primary);
+        }
+
+        .form-control:focus, .form-select:focus {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: var(--primary-color);
+            color: var(--text-primary);
+            box-shadow: 0 0 0 0.25rem rgba(29, 185, 84, 0.25);
+        }
+
+        .form-control::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .form-select option {
+            background-color: var(--surface-color);
+            color: var(--text-primary);
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #1aa34a;
+            border-color: #1aa34a;
+        }
+
+        .btn-outline-primary {
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-primary:hover {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn-outline-danger {
+            color: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .btn-outline-danger:hover {
+            background-color: #dc3545;
+            border-color: #dc3545;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .navbar-menu {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <nav class="navbar">
+        <a href="{{ url_for('index') }}" class="navbar-brand">ContaLaudo</a>
+        <div class="navbar-menu">
+            <a href="{{ url_for('index') }}" {% if request.endpoint == 'index' %}class="active"{% endif %}>Dashboard</a>
+            <a href="{{ url_for('gerenciar_procedimentos') }}" {% if request.endpoint == 'gerenciar_procedimentos' %}class="active"{% endif %}>Procedimentos</a>
+            <a href="{{ url_for('logout') }}">Sair</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

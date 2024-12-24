@@ -1,0 +1,561 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="instituicoes-container">
+    <div class="page-header">
+        <h2>Selecionar Instituição</h2>
+        <button onclick="showNovaInstituicaoModal()" class="add-btn">
+            <i class="fas fa-plus"></i>
+            Nova
+        </button>
+    </div>
+    
+    <!-- Lista de Instituições -->
+    <div class="instituicoes-grid">
+        {% for instituicao in instituicoes %}
+        <div class="instituicao-card">
+            <div class="instituicao-content">
+                <span class="instituicao-nome">{{ instituicao.nome }}</span>
+                <div class="instituicao-actions">
+                    <button onclick="editarInstituicao({{ instituicao.id }}, '{{ instituicao.nome }}')" class="btn-icon" title="Editar">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button onclick="confirmarExclusao({{ instituicao.id }})" class="btn-icon" title="Excluir">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button onclick="selecionarInstituicao({{ instituicao.id }})" class="btn-select">Selecionar</button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Modal Nova Instituição -->
+    <div id="novaInstituicaoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Nova Instituição</h3>
+                <button onclick="closeModal('novaInstituicaoModal')" class="btn-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="novaInstituicaoForm" onsubmit="salvarNovaInstituicao(event)">
+                <div class="form-group">
+                    <label for="nome">Nome da Instituição</label>
+                    <input type="text" id="nome" name="nome" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" onclick="closeModal('novaInstituicaoModal')" class="add-btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="add-btn">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Editar Instituição -->
+    <div id="editarInstituicaoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Instituição</h3>
+                <button onclick="closeModal('editarInstituicaoModal')" class="btn-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="editarInstituicaoForm" onsubmit="salvarEdicaoInstituicao(event)">
+                <input type="hidden" id="editInstituicaoId">
+                <div class="form-group">
+                    <label for="editNome">Nome da Instituição</label>
+                    <input type="text" id="editNome" name="editNome" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" onclick="closeModal('editarInstituicaoModal')" class="add-btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="add-btn">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Tipo Remuneração -->
+    <div id="tipoRemuneracaoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Tipo de Remuneração</h3>
+                <button onclick="closeModal('tipoRemuneracaoModal')" class="btn-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="tipo-remuneracao-grid">
+                <button onclick="selecionarTipoRemuneracao('fixo')" class="btn-option">
+                    <i class="fas fa-dollar-sign"></i>
+                    <span>Fixo</span>
+                </button>
+                <button onclick="selecionarTipoRemuneracao('producao')" class="btn-option">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Produção</span>
+                </button>
+                <button onclick="selecionarTipoRemuneracao('fixo_producao')" class="btn-option">
+                    <i class="fas fa-coins"></i>
+                    <span>Fixo + Produção</span>
+                </button>
+                <button onclick="selecionarTipoRemuneracao('pontuacao')" class="btn-option">
+                    <i class="fas fa-star"></i>
+                    <span>Pontos Rede D'Or</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Valor Fixo -->
+    <div id="valorFixoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Valor Fixo</h3>
+                <button onclick="closeModal('valorFixoModal')" class="btn-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="valorFixoForm" onsubmit="salvarValorFixo(event)">
+                <div class="form-group">
+                    <label for="valorFixo">Valor Fixo</label>
+                    <div class="input-group">
+                        <span class="input-prefix">R$</span>
+                        <input type="number" id="valorFixo" name="valorFixo" step="0.01" min="0" required>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" onclick="closeModal('valorFixoModal')" class="add-btn btn-secondary">Cancelar</button>
+                    <button type="submit" class="add-btn">Confirmar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.instituicoes-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.page-header h2 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.instituicoes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+}
+
+.instituicao-card {
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.instituicao-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.instituicao-content {
+    padding: 20px;
+}
+
+.instituicao-nome {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    display: block;
+}
+
+.instituicao-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 16px;
+}
+
+.btn-icon {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: color 0.2s;
+}
+
+.btn-icon:hover {
+    color: var(--text-primary);
+}
+
+.btn-select {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    margin-left: auto;
+    transition: background-color 0.2s;
+}
+
+.btn-select:hover {
+    background-color: var(--primary-dark);
+}
+
+.add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.add-btn:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.add-btn.btn-secondary {
+    background-color: var(--surface-color);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.add-btn.btn-secondary:hover {
+    background-color: var(--hover-color);
+}
+
+.add-btn i {
+    font-size: 14px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+    background-color: var(--background-color);
+    border-radius: 12px;
+    padding: 0;
+    width: 90%;
+    max-width: 500px;
+    margin: 50px auto;
+    position: relative;
+    animation: slideIn 0.3s ease-out;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    font-size: 18px;
+}
+
+.btn-close:hover {
+    color: var(--text-primary);
+}
+
+form {
+    padding: 24px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.form-group input {
+    width: 100%;
+    padding: 10px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--surface-color);
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.tipo-remuneracao-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    padding: 24px;
+}
+
+.btn-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 24px;
+    background-color: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-option i {
+    font-size: 24px;
+    color: var(--primary-color);
+}
+
+.btn-option span {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.input-group {
+    position: relative;
+}
+
+.input-prefix {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary);
+}
+
+.input-group input {
+    padding-left: 40px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .instituicoes-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 20px auto;
+    }
+}
+</style>
+
+<script>
+let selectedInstituicaoId = null;
+let selectedTipoRemuneracao = null;
+
+function showModal(modalId) {
+    document.getElementById(modalId).style.display = 'block';
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+function showNovaInstituicaoModal() {
+    showModal('novaInstituicaoModal');
+}
+
+async function salvarNovaInstituicao(event) {
+    event.preventDefault();
+    const nome = document.getElementById('nome').value;
+    
+    try {
+        const response = await fetch('/api/instituicoes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ nome }),
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            closeModal('novaInstituicaoModal');
+            selectedInstituicaoId = data.id;
+            showModal('tipoRemuneracaoModal');
+        }
+    } catch (error) {
+        console.error('Erro ao salvar instituição:', error);
+    }
+}
+
+function editarInstituicao(id, nome) {
+    document.getElementById('editInstituicaoId').value = id;
+    document.getElementById('editNome').value = nome;
+    showModal('editarInstituicaoModal');
+}
+
+async function salvarEdicaoInstituicao(event) {
+    event.preventDefault();
+    const id = document.getElementById('editInstituicaoId').value;
+    const nome = document.getElementById('editNome').value;
+    
+    try {
+        const response = await fetch(`/api/instituicoes/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ nome }),
+        });
+        
+        if (response.ok) {
+            location.reload();
+        }
+    } catch (error) {
+        console.error('Erro ao editar instituição:', error);
+    }
+}
+
+async function confirmarExclusao(id) {
+    if (confirm('Tem certeza que deseja excluir esta instituição?')) {
+        try {
+            const response = await fetch(`/api/instituicoes/${id}`, {
+                method: 'DELETE',
+            });
+            
+            if (response.ok) {
+                location.reload();
+            }
+        } catch (error) {
+            console.error('Erro ao excluir instituição:', error);
+        }
+    }
+}
+
+function selecionarInstituicao(id) {
+    selectedInstituicaoId = id;
+    showModal('tipoRemuneracaoModal');
+}
+
+function selecionarTipoRemuneracao(tipo) {
+    selectedTipoRemuneracao = tipo;
+    closeModal('tipoRemuneracaoModal');
+    
+    if (tipo === 'fixo' || tipo === 'fixo_producao') {
+        showModal('valorFixoModal');
+    } else {
+        criarPeriodo();
+    }
+}
+
+async function salvarValorFixo(event) {
+    event.preventDefault();
+    const valorFixo = document.getElementById('valorFixo').value;
+    closeModal('valorFixoModal');
+    await criarPeriodo(valorFixo);
+}
+
+async function criarPeriodo(valorFixo = null) {
+    try {
+        const response = await fetch('/api/periodos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                instituicao_id: selectedInstituicaoId,
+                tipo_remuneracao: selectedTipoRemuneracao,
+                valor_fixo: valorFixo
+            }),
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            window.location.href = `/periodos/${data.id}`;
+        }
+    } catch (error) {
+        console.error('Erro ao criar período:', error);
+    }
+}
+
+// Fechar modais quando clicar fora
+window.onclick = function(event) {
+    const modals = document.getElementsByClassName('modal');
+    for (let modal of modals) {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    }
+}
+</script>
+{% endblock %}

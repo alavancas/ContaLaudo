@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Procedimentos</h2>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addProcedimentoModal">
+            <i class="fas fa-plus"></i> Novo
+        </button>
+    </div>
+
+    <!-- Cards de procedimentos -->
+    <div class="row g-3">
+        {% for proc in procedimentos %}
+        <div class="col-12 col-md-6 col-lg-4">
+            <div class="card bg-dark">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0 text-light">{{ proc.nome }}</h5>
+                        <span class="tipo-badge {{ proc.tipo_laudo|lower }}">{{ proc.tipo_laudo }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-muted small mb-1">Valor</div>
+                            <div class="text-light fw-bold">{{ "R$ %.2f"|format(proc.valor) if proc.valor else "-" }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="text-muted small mb-1">Pontos Rede D'Or</div>
+                            <div class="text-light fw-bold">{{ "%.1f"|format(proc.pontos_rede_dor) if proc.pontos_rede_dor else "-" }}</div>
+                        </div>
+                        <div class="ms-3">
+                            <button class="btn btn-sm btn-outline-light me-1" onclick="editarProcedimento({{ proc.id }}, '{{ proc.nome|replace("'", "\\'") }}', '{{ proc.tipo_laudo }}', {{ proc.valor if proc.valor else 'null' }}, {{ proc.pontos_rede_dor if proc.pontos_rede_dor else 'null' }})">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="excluirProcedimento({{ proc.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Modal Adicionar Procedimento -->
+    <div class="modal fade" id="addProcedimentoModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Novo Procedimento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addProcedimentoForm">
+                        <div class="mb-3">
+                            <label for="nome" class="form-label">Nome do Procedimento *</label>
+                            <input type="text" class="form-control" id="nome" name="nome" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="tipo_laudo" class="form-label">Tipo do Laudo *</label>
+                            <select class="form-select" id="tipo_laudo" name="tipo_laudo" required>
+                                <option value="RM">RM</option>
+                                <option value="TC">TC</option>
+                                <option value="RX">RX</option>
+                                <option value="USG">USG</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="valor" class="form-label">Valor (R$)</label>
+                            <input type="number" step="0.01" class="form-control" id="valor" name="valor">
+                        </div>
+                        <div class="mb-3">
+                            <label for="pontos_rede_dor" class="form-label">Pontos Rede D'Or</label>
+                            <input type="number" step="0.1" class="form-control" id="pontos_rede_dor" name="pontos_rede_dor">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="salvarProcedimento()">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Editar Procedimento -->
+    <div class="modal fade" id="editProcedimentoModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Editar Procedimento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProcedimentoForm">
+                        <input type="hidden" id="edit_id">
+                        <div class="mb-3">
+                            <label for="edit_nome" class="form-label">Nome do Procedimento *</label>
+                            <input type="text" class="form-control" id="edit_nome" name="nome" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_tipo_laudo" class="form-label">Tipo do Laudo *</label>
+                            <select class="form-select" id="edit_tipo_laudo" name="tipo_laudo" required>
+                                <option value="RM">RM</option>
+                                <option value="TC">TC</option>
+                                <option value="RX">RX</option>
+                                <option value="USG">USG</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_valor" class="form-label">Valor (R$)</label>
+                            <input type="number" step="0.01" class="form-control" id="edit_valor" name="valor">
+                        </div>
+                        <div class="mb-3">
+                            <label for="edit_pontos_rede_dor" class="form-label">Pontos Rede D'Or</label>
+                            <input type="number" step="0.1" class="form-control" id="edit_pontos_rede_dor" name="pontos_rede_dor">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="atualizarProcedimento()">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar Exclusão</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Tem certeza que deseja excluir este procedimento?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmarExclusao()">Excluir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<style>
+/* Estilos para os tipos de laudo */
+.tipo-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: white;
+    display: inline-block;
+    min-width: 60px;
+    text-align: center;
+}
+
+.tipo-badge.rm {
+    background-color: #2196F3;  /* Azul */
+}
+
+.tipo-badge.tc {
+    background-color: #4CAF50;  /* Verde */
+}
+
+.tipo-badge.rx {
+    background-color: #9C27B0;  /* Roxo */
+}
+
+.tipo-badge.usg {
+    background-color: #FF9800;  /* Laranja */
+}
+
+/* Estilos para os cards */
+.card {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+.card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+/* Ajustes para mobile */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+    }
+}
+</style>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let procedimentoIdParaExcluir = null;
+
+function salvarProcedimento() {
+    const form = document.getElementById('addProcedimentoForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    // Converter campos vazios para null
+    if (!data.valor) data.valor = null;
+    if (!data.pontos_rede_dor) data.pontos_rede_dor = null;
+
+    fetch('/procedimentos/adicionar', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Erro ao salvar procedimento: ' + data.error);
+        }
+    });
+}
+
+function editarProcedimento(id, nome, tipo_laudo, valor, pontos_rede_dor) {
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_nome').value = nome;
+    document.getElementById('edit_tipo_laudo').value = tipo_laudo;
+    document.getElementById('edit_valor').value = valor || '';
+    document.getElementById('edit_pontos_rede_dor').value = pontos_rede_dor || '';
+    
+    new bootstrap.Modal(document.getElementById('editProcedimentoModal')).show();
+}
+
+function atualizarProcedimento() {
+    const form = document.getElementById('editProcedimentoForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    const id = document.getElementById('edit_id').value;
+    
+    // Converter campos vazios para null
+    if (!data.valor) data.valor = null;
+    if (!data.pontos_rede_dor) data.pontos_rede_dor = null;
+
+    fetch(`/procedimentos/editar/${id}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Erro ao atualizar procedimento: ' + data.error);
+        }
+    });
+}
+
+function excluirProcedimento(id) {
+    procedimentoIdParaExcluir = id;
+    new bootstrap.Modal(document.getElementById('confirmDeleteModal')).show();
+}
+
+function confirmarExclusao() {
+    if (!procedimentoIdParaExcluir) return;
+    
+    fetch(`/procedimentos/excluir/${procedimentoIdParaExcluir}`, {
+        method: 'POST'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Erro ao excluir procedimento: ' + data.error);
+        }
+    });
+}
+</script>
+{% endblock %}

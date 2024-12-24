@@ -1,0 +1,1165 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="periodo-detalhes">
+    <div class="periodo-header">
+        <div class="header-content">
+            <h1>{{ periodo.instituicao.nome }}</h1>
+            <p class="periodo-meta">Criado em {{ periodo.data_criacao.strftime('%d/%m/%Y às %H:%M') }}</p>
+        </div>
+        <div class="periodo-resumo">
+            <div class="resumo-item">
+                <span class="resumo-label">Total de Laudos</span>
+                <span class="resumo-valor">{{ periodo.laudos|length }}</span>
+            </div>
+            <div class="resumo-item">
+                <span class="resumo-label">Valor Total</span>
+                <span class="resumo-valor">R$ {{ "%.2f"|format(periodo.laudos|sum(attribute='valor')) }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="laudos-list">
+        {% if periodo.laudos %}
+            {% for laudo in periodo.laudos|sort(attribute='data_cadastro', reverse=true) %}
+            <div class="laudo-card" 
+                 data-id="{{ laudo.id }}" 
+                 data-tipo="{{ laudo.tipo }}" 
+                 data-valor="{{ "%.2f"|format(laudo.valor) }}" 
+                 data-data="{{ laudo.data_cadastro.strftime('%Y-%m-%dT%H:%M') }}" 
+                 data-comentarios="{{ laudo.comentarios|default('', true)|replace('"', '&quot;')|replace('\n', '\\n') }}">
+                <div class="laudo-content">
+                    <div class="laudo-info">
+                        <div class="laudo-nome">{{ laudo.procedimento_nome }}</div>
+                        <div class="laudo-data">{{ laudo.data_cadastro.strftime('%d/%m/%Y às %H:%M') }}</div>
+                        {% if laudo.comentarios %}
+                        <div class="laudo-comentarios">
+                            {{ laudo.comentarios }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="laudo-right">
+                        <div class="laudo-badges">
+                            <span class="tipo-badge {{ laudo.tipo.lower() }}">{{ laudo.tipo }}</span>
+                            <span class="valor-badge">R$ {{ "%.2f"|format(laudo.valor) }}</span>
+                        </div>
+                        <div class="laudo-actions">
+                            <button class="edit-btn" onclick="editarLaudo(this.closest('.laudo-card'))">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-btn" onclick="excluirLaudo(event, {{ laudo.id }})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-file-medical empty-icon"></i>
+                <h2>Nenhum laudo cadastrado</h2>
+                <p>Comece adicionando laudos para este período</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Botão flutuante -->
+    <button class="fab-button" onclick="toggleModal()">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <!-- Modal de adição de laudo -->
+    <div id="addLaudoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Novo Laudo</h3>
+                <button type="button" class="close-btn" onclick="toggleModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addLaudoForm" method="POST" action="{{ url_for('adicionar_laudo', periodo_id=periodo.id) }}" class="laudo-form">
+                    <div class="tipo-laudo-group">
+                        <div class="tipo-laudo-buttons">
+                            <button type="button" class="tipo-btn" data-tipo="RM" onclick="selecionarTipo(this)">RM</button>
+                            <button type="button" class="tipo-btn" data-tipo="TC" onclick="selecionarTipo(this)">TC</button>
+                            <button type="button" class="tipo-btn" data-tipo="USG" onclick="selecionarTipo(this)">USG</button>
+                            <button type="button" class="tipo-btn" data-tipo="RX" onclick="selecionarTipo(this)">RX</button>
+                        </div>
+                        <input type="hidden" id="tipo_laudo" name="tipo_laudo">
+                    </div>
+
+                    <div class="form-group procedimentos-container">
+                        <input type="text" 
+                               class="form-control" 
+                               id="procedimento_search" 
+                               placeholder="Buscar procedimento..."
+                               autocomplete="off">
+                        <input type="hidden" id="procedimento_id" name="procedimento_id">
+                        <div id="procedimentosList" class="procedimentos-list"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="number" 
+                               class="form-control" 
+                               id="valor" 
+                               name="valor" 
+                               step="0.01" 
+                               placeholder="Valor" 
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="datetime-local" 
+                               class="form-control" 
+                               id="data" 
+                               name="data_cadastro" 
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <textarea class="form-control" 
+                                  id="comentarios" 
+                                  name="comentarios" 
+                                  placeholder="Comentários (opcional)"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Adicionar Laudo</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de edição de laudo -->
+    <div id="editLaudoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Editar Laudo</h3>
+                <button type="button" class="close-btn" onclick="toggleEditModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editLaudoForm" method="POST" class="laudo-form">
+                    <input type="hidden" id="edit_laudo_id" name="laudo_id">
+                    
+                    <div class="tipo-laudo-group">
+                        <div class="tipo-laudo-buttons">
+                            <button type="button" class="tipo-btn" data-tipo="RM" onclick="selecionarTipo(this, true)">RM</button>
+                            <button type="button" class="tipo-btn" data-tipo="TC" onclick="selecionarTipo(this, true)">TC</button>
+                            <button type="button" class="tipo-btn" data-tipo="USG" onclick="selecionarTipo(this, true)">USG</button>
+                            <button type="button" class="tipo-btn" data-tipo="RX" onclick="selecionarTipo(this, true)">RX</button>
+                        </div>
+                        <input type="hidden" id="edit_tipo_laudo" name="tipo_laudo">
+                    </div>
+
+                    <div class="form-group procedimentos-container">
+                        <input type="text" 
+                               class="form-control" 
+                               id="edit_procedimento_search" 
+                               placeholder="Buscar procedimento..."
+                               autocomplete="off">
+                        <input type="hidden" id="edit_procedimento_id" name="procedimento_id">
+                        <div id="editProcedimentosList" class="procedimentos-list"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="number" 
+                               class="form-control" 
+                               id="edit_valor" 
+                               name="valor" 
+                               step="0.01" 
+                               placeholder="Valor" 
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="datetime-local" 
+                               class="form-control" 
+                               id="edit_data" 
+                               name="data_cadastro" 
+                               required>
+                    </div>
+
+                    <div class="form-group">
+                        <textarea class="form-control" 
+                                  id="edit_comentarios" 
+                                  name="comentarios" 
+                                  placeholder="Comentários (opcional)"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.periodo-detalhes {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    position: relative;
+    min-height: calc(100vh - 120px);
+}
+
+.periodo-header {
+    background-color: var(--surface-color);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+}
+
+.header-content h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.periodo-meta {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+}
+
+.periodo-resumo {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.resumo-item {
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.resumo-label {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+}
+
+.resumo-valor {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.laudos-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.laudo-card {
+    background: var(--surface-color);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.laudo-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.laudo-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.laudo-nome {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.laudo-data {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-top: 2px;
+}
+
+.laudo-comentarios {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-top: 8px;
+    line-height: 1.3;
+}
+
+.laudo-right {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.laudo-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+}
+
+.tipo-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: white;
+    min-width: 45px;
+    text-align: center;
+}
+
+.tipo-badge.rm { background-color: #2196F3; }
+.tipo-badge.tc { background-color: #4CAF50; }
+.tipo-badge.rx { background-color: #9C27B0; }
+.tipo-badge.usg { background-color: #FF9800; }
+
+.valor-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: white;
+    background-color: #4CAF50;
+    min-width: 70px;
+    text-align: center;
+}
+
+.laudo-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.edit-btn, .delete-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 4px;
+    font-size: 0.9rem;
+    opacity: 0.7;
+    transition: all 0.2s ease-in-out;
+}
+
+.edit-btn:hover {
+    color: var(--primary-color);
+    opacity: 1;
+}
+
+.delete-btn:hover {
+    color: var(--danger-color);
+    opacity: 1;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 1;
+}
+
+.modal-content {
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 12px;
+    padding: 1rem;
+    width: 85%;
+    max-width: 360px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: none;
+}
+
+.modal-header h3 {
+    font-size: 1.1rem;
+    margin: 0;
+    color: #fff;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 1.2rem;
+    padding: 0.25rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+}
+
+.close-btn:hover {
+    color: #fff;
+}
+
+.modal-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.form-group {
+    margin-bottom: 0.5rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.5rem;
+    background: #2a2a2a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.9rem;
+}
+
+.form-control::placeholder {
+    color: #666;
+}
+
+.tipo-laudo-group {
+    margin-bottom: 0.75rem;
+}
+
+.tipo-laudo-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tipo-btn {
+    flex: 1;
+    padding: 0.5rem;
+    background: #2a2a2a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tipo-btn:hover {
+    background: var(--primary-hover);
+}
+
+.tipo-btn.selected {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #000;
+}
+
+.procedimentos-container {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+}
+
+#procedimentosList, #editProcedimentosList {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 250px;
+    overflow-y: auto;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    margin-top: 0.25rem;
+}
+
+.procedimento-item {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid #333;
+}
+
+.procedimento-item:hover {
+    background: #2a2a2a;
+}
+
+.procedimento-item .nome {
+    flex: 1;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.procedimento-item .tipo-badge {
+    padding: 0.15rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.9;
+    color: white;
+}
+
+.procedimento-item .valor {
+    font-family: monospace;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    color: #999;
+}
+
+.tipo-badge.rm { background-color: #2196F3; }
+.tipo-badge.tc { background-color: #4CAF50; }
+.tipo-badge.rx { background-color: #9C27B0; }
+.tipo-badge.usg { background-color: #FF9800; }
+
+.submit-btn {
+    width: 100%;
+    padding: 0.6rem;
+    background: var(--primary-color);
+    color: #000;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-top: 0.5rem;
+}
+
+.submit-btn:hover {
+    background: var(--primary-hover);
+}
+
+:root {
+    --primary-color: #50B83C;
+    --primary-hover: #3d8b2d;
+}
+
+.fab-button {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    transition: transform 0.2s, background-color 0.2s;
+}
+
+.fab-button:hover {
+    transform: scale(1.1);
+    background-color: var(--primary-hover);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: var(--primary-color);
+}
+
+.empty-state h2 {
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.empty-state p {
+    font-size: 1rem;
+}
+</style>
+
+<script>
+let selectedTipo = '';
+
+function toggleModal() {
+    const modal = document.getElementById('addLaudoModal');
+    if (!modal) return;
+    
+    if (!modal.classList.contains('show')) {
+        // Resetar o tipo selecionado
+        selectedTipo = '';
+        document.querySelectorAll('.tipo-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        
+        // Definir a data atual
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const currentDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+        
+        document.getElementById('data').value = currentDateTime;
+        
+        // Limpar campos
+        document.getElementById('procedimento_id').value = '';
+        document.getElementById('procedimento_search').value = '';
+        document.getElementById('valor').value = '';
+        document.getElementById('comentarios').value = '';
+        
+        modal.classList.add('show');
+        
+        // Esconder as listas
+        document.getElementById('procedimentosList').style.display = 'none';
+        document.getElementById('editProcedimentosList').style.display = 'none';
+    } else {
+        modal.classList.remove('show');
+    }
+}
+
+function setupProcedimentosBlur() {
+    const searchInputs = ['procedimento_search', 'edit_procedimento_search'];
+    const lists = ['procedimentosList', 'editProcedimentosList'];
+    
+    searchInputs.forEach((inputId, index) => {
+        const input = document.getElementById(inputId);
+        const list = document.getElementById(lists[index]);
+        
+        if (!input || !list) return;
+        
+        // Quando o input mudar
+        input.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.trim();
+            fetchProcedimentos(searchTerm);
+            list.style.display = 'block';
+        });
+        
+        // Quando clicar em qualquer lugar do documento
+        document.addEventListener('click', (e) => {
+            // Se o clique não foi no input nem na lista
+            if (!input.contains(e.target) && !list.contains(e.target)) {
+                list.style.display = 'none';
+            }
+        });
+        
+        // Quando o input receber foco
+        input.addEventListener('focus', () => {
+            fetchProcedimentos(input.value);
+            list.style.display = 'block';
+        });
+        
+        // Previne que o clique na lista feche ela
+        list.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    });
+}
+
+// Adiciona o evento quando o DOM estiver pronto
+document.addEventListener('DOMContentLoaded', () => {
+    setupProcedimentosBlur();
+    
+    // Adicionar eventos de busca
+    ['procedimento_search', 'edit_procedimento_search'].forEach(id => {
+        const searchInput = document.getElementById(id);
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                fetchProcedimentos(e.target.value);
+                const listId = id === 'procedimento_search' ? 'procedimentosList' : 'editProcedimentosList';
+                document.getElementById(listId).style.display = 'block';
+            });
+        }
+    });
+});
+
+function selecionarTipo(button, isEdit = false) {
+    const clickedTipo = button.dataset.tipo;
+    const searchInput = document.getElementById('procedimento_search');
+    
+    // Se clicar no mesmo tipo já selecionado, remove a seleção
+    if (selectedTipo === clickedTipo) {
+        button.classList.remove('selected');
+        selectedTipo = '';
+        
+        // Buscar todos os procedimentos
+        fetchProcedimentos(searchInput.value);
+        
+        // Focar no campo de busca
+        searchInput.focus();
+        return;
+    }
+    
+    // Remover seleção anterior
+    document.querySelectorAll('.tipo-btn').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    // Adicionar seleção ao botão clicado
+    button.classList.add('selected');
+    selectedTipo = clickedTipo;
+    
+    // Atualizar o input hidden do tipo (se existir)
+    const tipoInput = document.getElementById('tipo_laudo');
+    if (tipoInput) {
+        tipoInput.value = selectedTipo;
+    }
+    
+    // Buscar procedimentos do tipo selecionado
+    fetchProcedimentos(searchInput.value);
+    
+    // Focar no campo de busca
+    searchInput.focus();
+}
+
+function fetchProcedimentos(search = '') {
+    const url = new URL('{{ url_for("buscar_procedimentos") }}', window.location.origin);
+    url.searchParams.append('search', search);
+    if (selectedTipo) {
+        url.searchParams.append('tipo', selectedTipo);
+    }
+    
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            updateProcedimentosList(data, document.getElementById('procedimentosList'));
+            updateProcedimentosList(data, document.getElementById('editProcedimentosList'));
+        })
+        .catch(error => {
+            console.error('Erro ao buscar procedimentos:', error);
+        });
+}
+
+function updateProcedimentosList(data, listElement) {
+    if (!listElement) return;
+    
+    listElement.style.display = 'block';
+    listElement.innerHTML = '';
+    
+    if (!Array.isArray(data) || data.length === 0) {
+        listElement.innerHTML = '<div class="procedimento-item"><div class="nome">Nenhum procedimento encontrado</div></div>';
+        return;
+    }
+    
+    data.forEach(proc => {
+        const item = document.createElement('div');
+        item.className = 'procedimento-item';
+        item.innerHTML = `
+            <div class="nome">${proc.nome}</div>
+            <div class="valor">R$ ${proc.valor ? Math.abs(Math.round(proc.valor)) : '0'}</div>
+            <div class="tipo-badge ${proc.tipo_laudo.toLowerCase()}">${proc.tipo_laudo}</div>
+        `;
+        item.onclick = () => {
+            selectProcedimento(
+                proc.id, 
+                proc.nome, 
+                proc.valor || 0, 
+                proc.tipo_laudo,
+                listElement.id === 'editProcedimentosList'
+            );
+            listElement.style.display = 'none';
+        };
+        listElement.appendChild(item);
+    });
+}
+
+function selectProcedimento(id, nome, valor, tipo_laudo, isEdit = false) {
+    const prefix = isEdit ? 'edit_' : '';
+    document.getElementById(prefix + 'procedimento_id').value = id;
+    document.getElementById(prefix + 'procedimento_search').value = nome;
+    document.getElementById(prefix + 'valor').value = Math.abs(Math.round(valor));
+    
+    // Selecionar o tipo do laudo automaticamente
+    document.getElementById(prefix + 'tipo_laudo').value = tipo_laudo;
+    
+    // Atualizar o botão selecionado
+    document.querySelectorAll(`.tipo-btn`).forEach(btn => {
+        if (btn.dataset.tipo === tipo_laudo) {
+            btn.classList.add('selected');
+        } else {
+            btn.classList.remove('selected');
+        }
+    });
+}
+
+function excluirLaudo(event, laudoId) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (confirm('Tem certeza que deseja excluir este laudo?')) {
+        const url = `/periodos/{{ periodo.id }}/laudos/${laudoId}/excluir`;
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Remover o card do laudo
+                const laudoCard = document.querySelector(`.laudo-card[data-id="${laudoId}"]`);
+                if (laudoCard) {
+                    laudoCard.remove();
+                }
+                atualizarResumoPeriodo();
+                alert('Laudo excluído com sucesso!');
+            } else {
+                alert(data.error || 'Erro ao excluir laudo');
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao excluir laudo');
+        });
+    }
+}
+
+function atualizarResumoPeriodo() {
+    const laudosList = document.querySelector('.laudos-list');
+    const totalLaudos = laudosList.querySelectorAll('.laudo-card').length;
+    
+    const resumoLaudos = document.querySelector('.resumo-item:first-child .resumo-valor');
+    if (resumoLaudos) {
+        resumoLaudos.textContent = totalLaudos;
+    }
+    
+    let valorTotal = 0;
+    laudosList.querySelectorAll('.valor-badge').forEach(valor => {
+        const valorTexto = valor.textContent.replace('R$ ', '').replace(',', '.');
+        valorTotal += parseFloat(valorTexto);
+    });
+    
+    const resumoValor = document.querySelector('.resumo-item:last-child .resumo-valor');
+    if (resumoValor) {
+        resumoValor.textContent = `R$ ${valorTotal.toFixed(2)}`;
+    }
+}
+
+function adicionarLaudoNaLista(laudo) {
+    const laudosList = document.querySelector('.laudos-list');
+    const emptyState = laudosList.querySelector('.empty-state');
+    if (emptyState) {
+        emptyState.remove();
+    }
+    
+    const laudoCard = document.createElement('div');
+    laudoCard.className = 'laudo-card';
+    laudoCard.dataset.id = laudo.id;
+    laudoCard.dataset.tipo = laudo.tipo;
+    laudoCard.dataset.valor = laudo.valor.toFixed(2);
+    laudoCard.dataset.data = laudo.data_cadastro;
+    laudoCard.dataset.comentarios = laudo.comentarios || '';
+    
+    laudoCard.innerHTML = `
+        <div class="laudo-content">
+            <div class="laudo-info">
+                <div class="laudo-nome">${laudo.procedimento_nome}</div>
+                <div class="laudo-data">${formatarData(laudo.data_cadastro)}</div>
+                ${laudo.comentarios ? `
+                    <div class="laudo-comentarios">
+                        ${laudo.comentarios}
+                    </div>
+                ` : ''}
+            </div>
+            <div class="laudo-right">
+                <div class="laudo-badges">
+                    <span class="tipo-badge ${laudo.tipo.lower()}}">${laudo.tipo}</span>
+                    <span class="valor-badge">R$ ${laudo.valor.toFixed(2)}</span>
+                </div>
+                <div class="laudo-actions">
+                    <button class="edit-btn" onclick="editarLaudo(this.closest('.laudo-card'))">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="delete-btn" onclick="excluirLaudo(event, ${laudo.id})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (laudosList.firstChild) {
+        laudosList.insertBefore(laudoCard, laudosList.firstChild);
+    } else {
+        laudosList.appendChild(laudoCard);
+    }
+    
+    atualizarResumoPeriodo();
+}
+
+function formatarData(data) {
+    const d = new Date(data);
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    const ano = d.getFullYear();
+    const hora = String(d.getHours()).padStart(2, '0');
+    const minutos = String(d.getMinutes()).padStart(2, '0');
+    
+    return `${dia}/${mes}/${ano} às ${hora}:${minutos}`;
+}
+
+function editarLaudo(laudoCard) {
+    const laudo = {
+        id: laudoCard.dataset.id,
+        tipo: laudoCard.dataset.tipo,
+        valor: parseFloat(laudoCard.dataset.valor),
+        data: laudoCard.dataset.data,
+        comentarios: laudoCard.dataset.comentarios
+    };
+    
+    // Preencher os campos do formulário
+    document.getElementById('edit_laudo_id').value = laudo.id;
+    document.getElementById('edit_tipo_laudo').value = laudo.tipo;
+    document.getElementById('edit_valor').value = laudo.valor;
+    document.getElementById('edit_data').value = laudo.data;
+    document.getElementById('edit_comentarios').value = laudo.comentarios;
+    
+    // Selecionar o tipo de laudo
+    document.querySelectorAll('.tipo-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        if (btn.dataset.tipo === laudo.tipo) {
+            btn.classList.add('selected');
+        }
+    });
+    
+    // Buscar o procedimento atual e preencher o campo de busca
+    fetch(`/periodos/{{ periodo.id }}/laudos/${laudo.id}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('edit_procedimento_id').value = data.procedimento_id;
+        document.getElementById('edit_procedimento_search').value = data.procedimento_nome;
+    });
+    
+    // Abrir o modal
+    toggleEditModal();
+}
+
+function toggleEditModal() {
+    const modal = document.getElementById('editLaudoModal');
+    modal.classList.toggle('show');
+    
+    if (!modal.classList.contains('show')) {
+        // Limpar formulário ao fechar
+        document.getElementById('editLaudoForm').reset();
+        document.querySelectorAll('.tipo-btn').forEach(btn => btn.classList.remove('selected'));
+    }
+}
+
+// Adicionar evento de submit ao formulário de edição
+document.getElementById('editLaudoForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const laudoId = document.getElementById('edit_laudo_id').value;
+    const formData = new FormData(this);
+    
+    fetch(`/periodos/{{ periodo.id }}/laudos/${laudoId}/editar`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Atualizar o card do laudo com os novos dados
+            const laudoCard = document.querySelector(`.laudo-card[data-id="${laudoId}"]`);
+            if (laudoCard) {
+                laudoCard.dataset.tipo = formData.get('tipo_laudo');
+                laudoCard.dataset.valor = formData.get('valor');
+                laudoCard.dataset.data = formData.get('data_cadastro');
+                laudoCard.dataset.comentarios = formData.get('comentarios');
+                
+                // Atualizar o conteúdo do card
+                const content = `
+                    <div class="laudo-content">
+                        <div class="laudo-info">
+                            <div class="laudo-nome">${document.getElementById('edit_procedimento_search').value}</div>
+                            <div class="laudo-data">${formatarData(formData.get('data_cadastro'))}</div>
+                            ${formData.get('comentarios') ? `
+                                <div class="laudo-comentarios">
+                                    ${formData.get('comentarios')}
+                                </div>
+                            ` : ''}
+                        </div>
+                        <div class="laudo-right">
+                            <div class="laudo-badges">
+                                <span class="tipo-badge ${formData.get('tipo_laudo').toLowerCase()}">${formData.get('tipo_laudo')}</span>
+                                <span class="valor-badge">R$ ${parseFloat(formData.get('valor')).toFixed(2)}</span>
+                            </div>
+                            <div class="laudo-actions">
+                                <button class="edit-btn" onclick="editarLaudo(this.closest('.laudo-card'))">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="delete-btn" onclick="excluirLaudo(event, ${laudoId})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                laudoCard.innerHTML = content;
+            }
+            
+            toggleEditModal();
+            atualizarResumoPeriodo();
+            alert('Laudo atualizado com sucesso!');
+        } else {
+            alert(data.error || 'Erro ao atualizar laudo');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao atualizar laudo');
+    });
+});
+
+document.getElementById('addLaudoForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    formData.set('tipo', document.getElementById('tipo_laudo').value);
+    
+    fetch(`/periodos/{{ periodo.id }}/laudos/adicionar`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Adicionar o novo laudo à lista
+            const laudoCard = document.createElement('div');
+            laudoCard.className = 'laudo-card';
+            laudoCard.dataset.id = data.laudo.id;
+            laudoCard.dataset.tipo = data.laudo.tipo;
+            laudoCard.dataset.valor = data.laudo.valor;
+            laudoCard.dataset.data = data.laudo.data_cadastro;
+            laudoCard.dataset.comentarios = data.laudo.comentarios;
+            
+            const content = `
+                <div class="laudo-content">
+                    <div class="laudo-info">
+                        <div class="laudo-nome">${data.laudo.procedimento_nome}</div>
+                        <div class="laudo-data">${formatarData(data.laudo.data_cadastro)}</div>
+                        ${data.laudo.comentarios ? `
+                            <div class="laudo-comentarios">
+                                ${data.laudo.comentarios}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="laudo-right">
+                        <div class="laudo-badges">
+                            <span class="tipo-badge ${data.laudo.tipo.toLowerCase()}">${data.laudo.tipo}</span>
+                            <span class="valor-badge">R$ ${parseFloat(data.laudo.valor).toFixed(2)}</span>
+                        </div>
+                        <div class="laudo-actions">
+                            <button class="edit-btn" onclick="editarLaudo(this.closest('.laudo-card'))">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-btn" onclick="excluirLaudo(event, ${data.laudo.id})">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            laudoCard.innerHTML = content;
+            
+            // Adicionar o card à lista de laudos
+            const laudosList = document.querySelector('.laudos-list');
+            if (laudosList) {
+                laudosList.insertBefore(laudoCard, laudosList.firstChild);
+            }
+            
+            // Atualizar o histórico
+            atualizarHistorico(data.laudo);
+            
+            // Limpar o formulário e fechar o modal
+            this.reset();
+            document.querySelectorAll('.tipo-btn').forEach(btn => btn.classList.remove('selected'));
+            toggleModal();
+            
+            // Atualizar o resumo do período
+            atualizarResumoPeriodo();
+            
+            alert('Laudo adicionado com sucesso!');
+        } else {
+            alert(data.error || 'Erro ao adicionar laudo');
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao adicionar laudo');
+    });
+});
+
+function atualizarHistorico(laudo) {
+    const historicoList = document.querySelector('#historicoContainer .historico-list');
+    if (!historicoList) return;
+
+    const historicoItem = document.createElement('div');
+    historicoItem.className = 'historico-item';
+    historicoItem.innerHTML = `
+        <div class="historico-content">
+            <div class="historico-info">
+                <div class="historico-nome">${laudo.procedimento_nome}</div>
+                <div class="historico-instituicao">${laudo.instituicao_nome}</div>
+                <div class="historico-data">${formatarData(laudo.data_cadastro)}</div>
+            </div>
+            <div class="historico-right">
+                <div class="historico-badges">
+                    <span class="tipo-badge ${laudo.tipo.toLowerCase()}">${laudo.tipo}</span>
+                    <span class="valor-badge">R$ ${parseFloat(laudo.valor).toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Adicionar no início da lista
+    historicoList.insertBefore(historicoItem, historicoList.firstChild);
+}
+</script>
+
+{% endblock %}
