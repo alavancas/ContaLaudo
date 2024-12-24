@@ -27,26 +27,37 @@ if not db_url:
 if db_url.startswith('DATABASE_URL='):
     db_url = db_url.replace('DATABASE_URL=', '')
 
-# Adiciona parâmetros SSL e timeout
-if '?' in db_url:
-    db_url += '&sslmode=require&connect_timeout=30'
-else:
-    db_url += '?sslmode=require&connect_timeout=30'
-
 # Configuração específica para o pooling do Supabase
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
-    'pool_size': 5,
-    'max_overflow': 2,
+    'pool_size': 20,  # aumentado para lidar com mais conexões
+    'max_overflow': 5,
     'pool_timeout': 30,
     'pool_recycle': 1800,
+    'pool_pre_ping': True,
     'connect_args': {
-        'connect_timeout': 30,
-        'application_name': 'contalaudo'
+        'connect_timeout': 10,
+        'application_name': 'contalaudo',
+        'keepalives': 1,
+        'keepalives_idle': 30,
+        'keepalives_interval': 10,
+        'keepalives_count': 5
     }
 }
+
+# Função para testar a conexão com o banco
+def test_db_connection():
+    try:
+        db.session.execute('SELECT 1')
+        return True
+    except Exception as e:
+        print(f"Erro ao conectar ao banco: {str(e)}")
+        return False
+
+# Teste a conexão ao iniciar
+if not test_db_connection():
+    print("AVISO: Não foi possível conectar ao banco de dados!")
 
 # Configuração do site URL para o Supabase
 SITE_URL = os.getenv('SITE_URL', 'http://localhost:8080')
