@@ -32,11 +32,11 @@ if os.getenv('RENDER'):
     # Extrai usuário e senha da URL atual
     from urllib.parse import urlparse
     parsed = urlparse(db_url)
-    username = parsed.username
     password = parsed.password
     
-    # Constrói a URL do pooler
-    db_url = f"postgresql://{username}.svrzytagzbrvnxnpwiux:{password}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
+    # Constrói a URL do pooler com o formato correto
+    db_url = f"postgresql://postgres.svrzytagzbrvnxnpwiux:{password}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
+    print(f"URL do banco: {db_url}")  # Para debug
 
 # Configuração específica para o pooling do Supabase
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
