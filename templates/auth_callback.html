@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Processando Autenticação</title>
+    <script>
+        window.onload = function() {
+            // Pega o hash da URL e remove o # inicial
+            const hash = window.location.hash.substring(1);
+            
+            // Converte o hash em um objeto
+            const params = {};
+            hash.split('&').forEach(param => {
+                const [key, value] = param.split('=');
+                params[key] = value;
+            });
+
+            // Envia os tokens para o backend
+            fetch('/verify-token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    access_token: params.access_token,
+                    refresh_token: params.refresh_token
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    alert('Erro ao verificar token: ' + data.error);
+                    window.location.href = '/login';
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao processar autenticação');
+                window.location.href = '/login';
+            });
+        };
+    </script>
+</head>
+<body>
+    <div style="text-align: center; margin-top: 50px;">
+        <h2>Processando sua autenticação...</h2>
+        <p>Por favor, aguarde.</p>
+    </div>
+</body>
+</html>

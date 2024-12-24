@@ -40,7 +40,7 @@ supabase = create_client(
 
 # Configuração do site URL
 SITE_URL = os.getenv('RENDER_EXTERNAL_URL', 'http://localhost:8080')
-CALLBACK_URL = f"{SITE_URL}/verify-magic-link"
+CALLBACK_URL = f"{SITE_URL}/auth/callback"
 
 @app.before_request
 def before_request():
@@ -702,50 +702,6 @@ def importar_procedimentos():
     
     return redirect(url_for('index'))
 
-@app.route('/verify-magic-link', methods=['GET', 'POST'])
-def verify_magic_link():
-    if request.method == 'POST':
-        try:
-            data = request.get_json()
-            access_token = data.get('access_token')
-            
-            if not access_token:
-                return jsonify({'success': False, 'message': 'Token não encontrado'}), 400
-
-            # Verificar o token com o Supabase
-            # user_data = supabase.auth.get_user(access_token)
-            
-            # if user_data and hasattr(user_data, 'user') and user_data.user:
-            #     email = user_data.user.email
-                
-            #     # Verificar se o usuário já existe
-            #     user = User.query.filter_by(email=email).first()
-                
-            #     if not user:
-            #         # Criar novo usuário
-            #         user = User(
-            #             email=email,
-            #             nome=email.split('@')[0]  # Usa parte do email como nome inicial
-            #         )
-            #         db.session.add(user)
-            #         db.session.commit()
-                    
-            #         # Importar procedimentos base para o novo usuário
-            #         importar_procedimentos_base(user.id)
-            #         print(f"Procedimentos importados para o novo usuário {user.email}", file=sys.stderr)
-                
-            #     # Fazer login
-            #     login_user(user)
-            #     return jsonify({'success': True, 'redirect': url_for('index')})
-            
-            return jsonify({'success': False, 'message': 'Token inválido'}), 401
-            
-        except Exception as e:
-            print(f"Erro ao verificar token: {str(e)}")  # Para debug
-            flash('Erro ao verificar o link. Por favor, tente novamente.', 'error')
-            return redirect(url_for('login'))
-    return render_template('login.html')
-
 @app.route('/magic-link', methods=['GET', 'POST'])
 def magic_link():
     if request.method == 'POST':
@@ -759,8 +715,11 @@ def magic_link():
             res = supabase.auth.sign_in_with_otp({
                 "email": email,
                 "options": {
-                    "email_redirect_to": CALLBACK_URL,
-                    "redirect_to": CALLBACK_URL
+                    "email_redirect_to": f"{SITE_URL}/auth/callback",
+                    "redirect_to": f"{SITE_URL}/auth/callback",
+                    "data": {
+                        "email": email
+                    }
                 }
             })
             flash('Link de acesso enviado para seu email!', 'success')
@@ -771,6 +730,67 @@ def magic_link():
             return redirect(url_for('magic_link'))
 
     return render_template('magic_link.html')
+
+@app.route('/auth/callback')
+def auth_callback():
+    try:
+        # O token vem como hash na URL, então precisamos pegar do frontend
+        return render_template('auth_callback.html')
+    except Exception as e:
+        print(f"Erro no callback: {str(e)}", file=sys.stderr)
+        flash('Erro ao processar autenticação.', 'error')
+        return redirect(url_for('login'))
+
+@app.route('/verify-token', methods=['POST'])
+def verify_token():
+    try:
+        data = request.get_json()
+        access_token = data.get('access_token')
+        refresh_token = data.get('refresh_token')
+
+        if not access_token:
+            return jsonify({'error': 'Token não encontrado'}), 400
+
+        # Configura a sessão do Supabase com o token
+        print("Configurando sessão do Supabase...", file=sys.stderr)
+        supabase.auth.set_session({
+            'access_token': access_token,
+            'refresh_token': refresh_token
+        })
+        
+        # Obtém os dados do usuário
+        print("Obtendo dados do usuário...", file=sys.stderr)
+        user = supabase.auth.get_user()
+        
+        if not user or not user.user:
+            return jsonify({'error': 'Usuário não encontrado'}), 404
+
+        email = user.user.email
+        print(f"Email do usuário: {email}", file=sys.stderr)
+
+        # Verifica se o usuário já existe no banco local
+        local_user = User.query.filter_by(email=email).first()
+        
+        if not local_user:
+            # Cria um novo usuário local
+            local_user = User(
+                email=email,
+                nome=email.split('@')[0]  # Usa parte do email como nome temporário
+            )
+            db.session.add(local_user)
+            db.session.commit()
+            
+            # Importar procedimentos base para o novo usuário
+            importar_procedimentos_base(local_user.id)
+            print(f"Novo usuário criado: {email}", file=sys.stderr)
+
+        # Faz login do usuário
+        login_user(local_user)
+        return jsonify({'success': True, 'redirect': url_for('index')})
+
+    except Exception as e:
+        print(f"Erro na verificação do token: {str(e)}", file=sys.stderr)
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/process-magic-link', methods=['POST'])
 def process_magic_link():
