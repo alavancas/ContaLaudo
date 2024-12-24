@@ -31,7 +31,7 @@ if db_url.startswith('DATABASE_URL='):
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 20,  # aumentado para lidar com mais conexões
+    'pool_size': 20,
     'max_overflow': 5,
     'pool_timeout': 30,
     'pool_recycle': 1800,
@@ -46,30 +46,33 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     }
 }
 
-# Função para testar a conexão com o banco
-def test_db_connection():
-    try:
-        db.session.execute('SELECT 1')
-        return True
-    except Exception as e:
-        print(f"Erro ao conectar ao banco: {str(e)}")
-        return False
-
-# Teste a conexão ao iniciar
-if not test_db_connection():
-    print("AVISO: Não foi possível conectar ao banco de dados!")
-
-# Configuração do site URL para o Supabase
-SITE_URL = os.getenv('SITE_URL', 'http://localhost:8080')
-if os.getenv('RENDER'):
-    SITE_URL = 'https://contalaudo.onrender.com'
-
 # Inicialização dos objetos
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Função para testar a conexão com o banco
+def test_db_connection():
+    try:
+        with app.app_context():
+            db.session.execute('SELECT 1')
+            print("Conexão com o banco de dados estabelecida com sucesso!")
+            return True
+    except Exception as e:
+        print(f"Erro ao conectar ao banco: {str(e)}")
+        return False
+
+# Teste a conexão ao iniciar
+with app.app_context():
+    if not test_db_connection():
+        print("AVISO: Não foi possível conectar ao banco de dados!")
+
+# Configuração do site URL para o Supabase
+SITE_URL = os.getenv('SITE_URL', 'http://localhost:8080')
+if os.getenv('RENDER'):
+    SITE_URL = 'https://contalaudo.onrender.com'
 
 # Configuração do Supabase
 supabase = create_client(
