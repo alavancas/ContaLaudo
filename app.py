@@ -734,12 +734,17 @@ def magic_link():
 @app.route('/auth/callback')
 def auth_callback():
     try:
-        # O token vem como hash na URL, então precisamos pegar do frontend
-        return render_template('auth_callback.html')
+        # Extrair o hash fragment da URL
+        fragment = request.args.get('fragment', '')
+        if not fragment and '#' in request.url:
+            fragment = request.url.split('#')[1]
+        
+        # Redirecionar para verify-magic-link com o fragment
+        return redirect(f'/verify-magic-link#{fragment}')
     except Exception as e:
-        print(f"Erro no callback: {str(e)}", file=sys.stderr)
-        flash('Erro ao processar autenticação.', 'error')
-        return redirect(url_for('login'))
+        print(f"Erro no callback: {str(e)}")
+        flash('Erro no processo de autenticação. Por favor, tente novamente.', 'error')
+        return redirect(url_for('magic_link'))
 
 @app.route('/verify-token', methods=['POST'])
 def verify_token():
@@ -795,35 +800,22 @@ def verify_token():
 @app.route('/process-magic-link', methods=['POST'])
 def process_magic_link():
     try:
-        print("=== DEBUG: Iniciando processamento do magic link ===", file=sys.stderr)
+        # Obter o token do request
+        data = request.get_json()
+        access_token = data.get('access_token')
+        refresh_token = data.get('refresh_token')
         
-        # Pega o hash do formulário
-        hash_data = request.form.get('hash', '')
-        print(f"Hash recebido: {hash_data}", file=sys.stderr)
-        
-        if not hash_data:
-            print("Erro: Hash não encontrado no formulário", file=sys.stderr)
-            flash('Token não encontrado. Por favor, faça login novamente.', 'error')
-            return redirect(url_for('login'))
-
-        # Extrai os parâmetros do hash
-        params = dict(param.split('=') for param in hash_data.split('&') if '=' in param)
-        print(f"Parâmetros extraídos: {params}", file=sys.stderr)
-        
-        access_token = params.get('access_token')
-        refresh_token = params.get('refresh_token')
-        print(f"Access Token encontrado: {'Sim' if access_token else 'Não'}", file=sys.stderr)
-        print(f"Refresh Token encontrado: {'Sim' if refresh_token else 'Não'}", file=sys.stderr)
-
         if not access_token:
-            print("Erro: Access token não encontrado nos parâmetros", file=sys.stderr)
-            flash('Token de acesso não encontrado. Por favor, faça login novamente.', 'error')
-            return redirect(url_for('login'))
+            print("Token não encontrado no request", file=sys.stderr)
+            return jsonify({'success': False, 'message': 'Token não encontrado'}), 400
 
         try:
             # Configura a sessão do Supabase com o token
             print("Tentando configurar sessão do Supabase...", file=sys.stderr)
-            # session = supabase.auth.set_session(access_token, refresh_token)
+            session = supabase.auth.set_session({
+                'access_token': access_token,
+                'refresh_token': refresh_token
+            })
             print("Sessão do Supabase configurada com sucesso", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao configurar sessão do Supabase: {str(e)}", file=sys.stderr)
@@ -832,39 +824,38 @@ def process_magic_link():
         try:
             # Obtém os dados do usuário
             print("Tentando obter dados do usuário...", file=sys.stderr)
-            # user_response = supabase.auth.get_user()
-            # user_data = user_response.user
-            print(f"Dados do usuário obtidos: ", file=sys.stderr)
+            user = supabase.auth.get_user()
+            print(f"Dados do usuário obtidos: {user.user.email if user and user.user else 'Nenhum'}", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao obter dados do usuário: {str(e)}", file=sys.stderr)
             raise
 
-        # if not user_data:
-        #     print("Erro: Dados do usuário não encontrados", file=sys.stderr)
-        #     flash('Usuário não encontrado.', 'error')
-        #     return redirect(url_for('login'))
+        if not user or not user.user:
+            print("Erro: Dados do usuário não encontrados", file=sys.stderr)
+            return jsonify({'success': False, 'message': 'Usuário não encontrado'}), 404
 
         try:
             # Verifica se o usuário já existe no banco local
-            print(f"Verificando usuário local para email: ", file=sys.stderr)
-            # local_user = User.query.filter_by(email=user_data.email).first()
+            email = user.user.email
+            print(f"Verificando usuário local para email: {email}", file=sys.stderr)
+            local_user = User.query.filter_by(email=email).first()
             
-            # if not local_user:
-            #     print("Criando novo usuário local...", file=sys.stderr)
-            #     # Cria um novo usuário local
-            #     local_user = User(
-            #         email=user_data.email,
-            #         nome=user_data.email.split('@')[0]  # Usa parte do email como nome temporário
-            #     )
-            #     db.session.add(local_user)
-            #     db.session.commit()
-            #     print(f"Novo usuário local criado: {local_user.email}", file=sys.stderr)
+            if not local_user:
+                print("Criando novo usuário local...", file=sys.stderr)
+                # Cria um novo usuário local
+                local_user = User(
+                    email=email,
+                    nome=email.split('@')[0]  # Usa parte do email como nome temporário
+                )
+                db.session.add(local_user)
+                db.session.commit()
+                print(f"Novo usuário local criado: {local_user.email}", file=sys.stderr)
                 
-            #     # Importar procedimentos base para o novo usuário
-            #     importar_procedimentos_base(local_user.id)
-            #     print(f"Procedimentos importados para o novo usuário {local_user.email}", file=sys.stderr)
-            # else:
-            #     print(f"Usuário local encontrado: {local_user.username}", file=sys.stderr)
+                # Importar procedimentos base para o novo usuário
+                importar_procedimentos_base(local_user.id)
+                print(f"Procedimentos importados para o novo usuário {local_user.email}", file=sys.stderr)
+            else:
+                print(f"Usuário local encontrado: {local_user.email}", file=sys.stderr)
         except Exception as e:
             print(f"Erro ao gerenciar usuário local: {str(e)}", file=sys.stderr)
             raise
@@ -872,43 +863,18 @@ def process_magic_link():
         try:
             # Faz login do usuário
             print("Fazendo login do usuário...", file=sys.stderr)
-            # login_user(local_user)
+            login_user(local_user)
             print("Login realizado com sucesso", file=sys.stderr)
+            return jsonify({'success': True, 'redirect': url_for('index')})
         except Exception as e:
             print(f"Erro ao fazer login: {str(e)}", file=sys.stderr)
             raise
 
-        print("=== Processo completado com sucesso ===", file=sys.stderr)
-        return redirect(url_for('index'))
-
     except Exception as e:
-        print(f"=== ERRO DETALHADO ===", file=sys.stderr)
-        print(f"Tipo do erro: {type(e).__name__}")
-        print(f"Mensagem do erro: {str(e)}", file=sys.stderr)
-        import traceback
-        print("Traceback:")
-        print(traceback.format_exc(), file=sys.stderr)
-        print("=== FIM DO ERRO ===", file=sys.stderr)
-        
-        flash('Erro ao verificar o link. Por favor, tente novamente.', 'error')
-        return redirect(url_for('login'))
+        print(f"Erro geral no process_magic_link: {str(e)}", file=sys.stderr)
+        return jsonify({'success': False, 'message': str(e)}), 500
 
-@app.route('/auth/callback')
-def auth_callback():
-    try:
-        # Extrair o hash fragment da URL
-        fragment = request.args.get('fragment', '')
-        if not fragment and '#' in request.url:
-            fragment = request.url.split('#')[1]
-        
-        # Redirecionar para verify-magic-link com o fragment
-        return redirect(f'/verify-magic-link#{fragment}')
-    except Exception as e:
-        print(f"Erro no callback: {str(e)}")
-        flash('Erro no processo de autenticação. Por favor, tente novamente.', 'error')
-        return redirect(url_for('magic_link'))
-
-@app.route('/procedimentos')
+@app.route('/gerenciar_procedimentos')
 @login_required
 def gerenciar_procedimentos():
     # Define a ordem dos tipos de laudo
