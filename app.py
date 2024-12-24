@@ -34,7 +34,7 @@ supabase = create_client(
 )
 
 # Configuração do site URL para o Supabase
-SITE_URL = "http://localhost:8080"
+SITE_URL = os.getenv('SITE_URL', 'http://localhost:8080')
 CALLBACK_URL = f"{SITE_URL}/auth/callback"
 
 @app.before_request
@@ -754,8 +754,8 @@ def magic_link():
             res = supabase.auth.sign_in_with_otp({
                 "email": email,
                 "options": {
-                    "email_redirect_to": "http://localhost:8080/verify-magic-link",
-                    "redirect_to": "http://localhost:8080/verify-magic-link"
+                    "email_redirect_to": f"{SITE_URL}/verify-magic-link",
+                    "redirect_to": f"{SITE_URL}/verify-magic-link"
                 }
             })
             flash('Link de acesso enviado para seu email!', 'success')
